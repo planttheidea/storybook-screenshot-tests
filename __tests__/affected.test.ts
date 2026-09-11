@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { findAffectedStories } from '../src/affected.js';
+import { findAffectedStories, hasFullRerunPathChange } from '../src/affected.js';
 
 const storyFiles = new Set(['src/A/A.stories.tsx', 'src/B/B.stories.tsx']);
 
@@ -53,5 +53,39 @@ describe('findAffectedStories', () => {
     };
 
     expect(findAffectedStories(['src/util.ts'], chained, storyFiles)).toEqual(['src/A/A.stories.tsx']);
+  });
+});
+
+describe('hasFullRerunPathChange', () => {
+  it('matches a file named exactly', () => {
+    expect(hasFullRerunPathChange(['apps/web/screenshots.config.ts'], ['apps/web/screenshots.config.ts'])).toBe(true);
+  });
+
+  it('matches anything beneath a directory entry', () => {
+    expect(hasFullRerunPathChange(['apps/web/.storybook/preview.ts'], ['apps/web/.storybook'])).toBe(true);
+  });
+
+  it('matches beneath a directory entry written with a trailing slash', () => {
+    expect(hasFullRerunPathChange(['apps/web/.storybook/preview.ts'], ['apps/web/.storybook/'])).toBe(true);
+  });
+
+  it('does not treat a directory entry as a filename prefix', () => {
+    expect(hasFullRerunPathChange(['apps/web/src/styles-legacy.css'], ['apps/web/src/styles'])).toBe(false);
+  });
+
+  it('does not match a sibling that merely shares a prefix', () => {
+    expect(hasFullRerunPathChange(['apps/web/.storybook-old/preview.ts'], ['apps/web/.storybook'])).toBe(false);
+  });
+
+  it('matches when any one of several changed files qualifies', () => {
+    expect(hasFullRerunPathChange(['README.md', 'apps/web/.storybook/main.ts'], ['apps/web/.storybook'])).toBe(true);
+  });
+
+  it('returns false for changes that touch none of the paths', () => {
+    expect(hasFullRerunPathChange(['apps/web/src/Button.tsx'], ['apps/web/.storybook'])).toBe(false);
+  });
+
+  it('returns false when no paths are declared', () => {
+    expect(hasFullRerunPathChange(['apps/web/.storybook/preview.ts'])).toBe(false);
   });
 });

@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -128,5 +128,32 @@ describe('defineScreenshotConfig projects', () => {
 describe('defineScreenshotConfig snapshots', () => {
   it('resolves baselines against the config directory, not the test directory', () => {
     expect(createConfig().snapshotPathTemplate).toBe('{arg}{ext}');
+  });
+});
+
+/** The full-rerun paths `defineScreenshotConfig` wrote for global setup to read back. */
+function getWrittenFullRerunPaths(overrides = {}): string[] {
+  createConfig(overrides);
+
+  const written = JSON.parse(readFileSync(join(root, '__generated__', 'screenshots', 'options.json'), 'utf-8')) as {
+    affected: { fullRerunPaths: string[] };
+  };
+
+  return written.affected.fullRerunPaths;
+}
+
+describe('defineScreenshotConfig full-rerun paths', () => {
+  it('registers Storybook config, which no story imports yet every story reads', () => {
+    // The temp root is outside any repository, so paths resolve relative to it.
+    expect(getWrittenFullRerunPaths()).toContain('.storybook');
+  });
+
+  it('keeps a project own paths alongside the defaults', () => {
+    const fullRerunPaths = getWrittenFullRerunPaths({
+      affected: { fullRerunPaths: ['apps/web/src/styles'] },
+    });
+
+    expect(fullRerunPaths).toContain('apps/web/src/styles');
+    expect(fullRerunPaths.length).toBeGreaterThan(1);
   });
 });

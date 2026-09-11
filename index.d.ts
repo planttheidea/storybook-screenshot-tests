@@ -49,6 +49,29 @@ interface AffectedOptions {
     cruiseOptions?: Record<string, unknown>;
     /** Lockfile to watch for dependency bumps, relative to the repository root. */
     lockfile?: string;
+    /**
+     * Paths whose change captures every story, regardless of the module graph.
+     *
+     * Affected detection walks what the stories import, which is the right
+     * default and blind to everything that reaches a story without being
+     * imported by one: a Storybook preview holding global decorators, the
+     * stylesheets that preview pulls in, a design-token file the CSS consumes.
+     * Change one of those and every baseline moves while the graph reports
+     * nothing — so the run captures nothing and the diff ships unchecked.
+     *
+     * Repository-relative. A directory entry matches everything beneath it, with
+     * or without a trailing slash. This config module and the `.storybook`
+     * directory beside it are always included, so a project only declares what is
+     * specific to it.
+     *
+     * ```ts
+     * affected: {
+     *   baseRef: process.env.NX_BASE,
+     *   fullRerunPaths: ['apps/web/src/styles'],
+     * }
+     * ```
+     */
+    fullRerunPaths?: string[];
 }
 /** Fields merged into the generated Storybook `webServer` entry. */
 interface StorybookServerOptions {

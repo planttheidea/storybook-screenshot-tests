@@ -23,6 +23,8 @@ every run, the test tree is built from that, and baselines for stories that no l
   - [Projects](#projects)
   - [Tags](#tags)
   - [Affected stories only](#affected-stories-only)
+    - [What the graph cannot see](#what-the-graph-cannot-see)
+    - [Dependency and build-output widening](#dependency-and-build-output-widening)
   - [Determinism](#determinism)
   - [The Storybook server](#the-storybook-server)
   - [How it works](#how-it-works)
@@ -189,11 +191,34 @@ The story files themselves are the entry points to the dependency graph, cruised
 walked, so `node_modules` falls out without an exclusion rule. A changed file that is itself a story short-circuits the
 walk, so a newly added story is captured even though the graph predates it.
 
-Two things deliberately widen back out to the full suite. A lockfile change that touches a package the stories reach is
-treated as able to move a pixel, so every story is captured — `affected.lockfile` pins which lockfile to read when the
-default detection guesses wrong. And a workspace package the graph reached through `dist` (or `build`, `lib`, `out-tsc`)
-rather than through source is reported as a warning, because edits to that package's source change no file the graph
-knows about:
+### What the graph cannot see
+
+A story reads more than it imports. Storybook's preview decorates every story, the stylesheets that preview pulls in
+style every story, and this config decides how every story is captured — and no story imports any of them. Change one
+and every baseline moves while the graph reports nothing, so the run captures nothing and the diff ships unchecked.
+
+The config module and the `.storybook` directory beside it are therefore always full-rerun triggers. Anything else in
+that shape is declared per project, repository-relative, a directory entry covering everything beneath it:
+
+```ts
+defineScreenshotConfig({
+  affected: {
+    baseRef: process.env.BASE_REF,
+    fullRerunPaths: ['apps/web/src/styles', 'packages/tokens'],
+  },
+  projects: [...],
+});
+```
+
+This check runs before the dependency graph is built, so a full rerun costs nothing to detect.
+
+### Dependency and build-output widening
+
+Two more things deliberately widen back out to the full suite. A lockfile change that touches a package the stories
+reach is treated as able to move a pixel, so every story is captured — `affected.lockfile` pins which lockfile to read
+when the default detection guesses wrong. And a workspace package the graph reached through `dist` (or `build`, `lib`,
+`out-tsc`) rather than through source is reported as a warning, because edits to that package's source change no file
+the graph knows about:
 
 ```
 Resolved 1 workspace package(s) to build output rather than source:
