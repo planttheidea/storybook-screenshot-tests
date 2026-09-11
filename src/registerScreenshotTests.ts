@@ -36,10 +36,7 @@ function getGroupedStories(stories: StoryRecord[]): Map<string, Map<string, Stor
  * tests when it loads a file — there is no fixture or `testInfo` yet, which is
  * why the manifest travels through disk rather than through the config object.
  */
-export function registerScreenshotTests({
-  test: baseTest,
-  expect,
-}: RegisterScreenshotTestsInput): void {
+export function registerScreenshotTests({ test: baseTest, expect }: RegisterScreenshotTestsInput): void {
   const options = getResolvedOptions();
   const { stories } = getManifest();
   const test = createScreenshotTest(baseTest);

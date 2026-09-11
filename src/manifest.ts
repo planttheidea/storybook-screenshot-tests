@@ -60,11 +60,7 @@ function isScreenshotTag(tag: string, screenshotTag: string): boolean {
  * Entries without an `importPath` are skipped: the baseline location is derived
  * from that field, so a story without one has nowhere to write.
  */
-export function deriveManifest(
-  index: StoryIndex,
-  tags: TagOptions,
-  allowedImportPaths?: Set<string>,
-): Manifest {
+export function deriveManifest(index: StoryIndex, tags: TagOptions, allowedImportPaths?: Set<string>): Manifest {
   const stories: StoryRecord[] = [];
   const allImportPaths = new Set<string>();
 
@@ -140,9 +136,7 @@ let currentManifest: Manifest | undefined;
 export function getManifest(): Manifest {
   if (!currentManifest) {
     try {
-      currentManifest = JSON.parse(
-        readFileSync(resolve(getGeneratedDirectory(), MANIFEST_FILE), 'utf-8'),
-      ) as Manifest;
+      currentManifest = JSON.parse(readFileSync(resolve(getGeneratedDirectory(), MANIFEST_FILE), 'utf-8')) as Manifest;
     } catch {
       currentManifest = EMPTY_MANIFEST;
     }

@@ -6,9 +6,7 @@ import { getRepositoryRoot } from '../src/paths.js';
 
 describe('getRepositoryRoot', () => {
   it('finds the root from inside a repository', () => {
-    expect(getRepositoryRoot(join(import.meta.dirname, '..', 'src'))).toBe(
-      join(import.meta.dirname, '..'),
-    );
+    expect(getRepositoryRoot(join(import.meta.dirname, '..', 'src'))).toBe(join(import.meta.dirname, '..'));
   });
 
   it('falls back to the given directory outside a repository', () => {

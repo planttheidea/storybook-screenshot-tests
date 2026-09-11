@@ -12,20 +12,18 @@ const reverseGraph: Record<string, string[]> = {
 
 describe('findAffectedStories', () => {
   it('walks upward through intermediate modules to the story', () => {
-    expect(findAffectedStories(['libraries/shared/src/palette.ts'], reverseGraph, storyFiles).sort())
-      .toEqual(['src/A/A.stories.tsx', 'src/B/B.stories.tsx']);
+    expect(findAffectedStories(['libraries/shared/src/palette.ts'], reverseGraph, storyFiles).sort()).toEqual([
+      'src/A/A.stories.tsx',
+      'src/B/B.stories.tsx',
+    ]);
   });
 
   it('catches a shared library change several hops away', () => {
-    expect(findAffectedStories(['src/A/Card.tsx'], reverseGraph, storyFiles)).toEqual([
-      'src/A/A.stories.tsx',
-    ]);
+    expect(findAffectedStories(['src/A/Card.tsx'], reverseGraph, storyFiles)).toEqual(['src/A/A.stories.tsx']);
   });
 
   it('returns the story itself when the story file changed', () => {
-    expect(findAffectedStories(['src/B/B.stories.tsx'], reverseGraph, storyFiles)).toEqual([
-      'src/B/B.stories.tsx',
-    ]);
+    expect(findAffectedStories(['src/B/B.stories.tsx'], reverseGraph, storyFiles)).toEqual(['src/B/B.stories.tsx']);
   });
 
   it('returns nothing for a file no story reaches', () => {
@@ -38,11 +36,7 @@ describe('findAffectedStories', () => {
 
   it('deduplicates stories reached by several changed files', () => {
     expect(
-      findAffectedStories(
-        ['libraries/shared/src/palette.ts', 'src/A/Card.tsx'],
-        reverseGraph,
-        storyFiles,
-      ).sort(),
+      findAffectedStories(['libraries/shared/src/palette.ts', 'src/A/Card.tsx'], reverseGraph, storyFiles).sort(),
     ).toEqual(['src/A/A.stories.tsx', 'src/B/B.stories.tsx']);
   });
 
@@ -58,8 +52,6 @@ describe('findAffectedStories', () => {
       'src/A/A.stories.tsx': ['src/B/B.stories.tsx'],
     };
 
-    expect(findAffectedStories(['src/util.ts'], chained, storyFiles)).toEqual([
-      'src/A/A.stories.tsx',
-    ]);
+    expect(findAffectedStories(['src/util.ts'], chained, storyFiles)).toEqual(['src/A/A.stories.tsx']);
   });
 });

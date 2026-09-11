@@ -45,10 +45,7 @@ async function createFilteredFontConfigFile(): Promise<string | undefined> {
 
   // Content-addressed directory: a changed system config set produces a new
   // tree instead of mutating one another process may be reading.
-  const contentHash = createHash('sha256')
-    .update(configFileNames.join('\n'))
-    .digest('hex')
-    .slice(0, 12);
+  const contentHash = createHash('sha256').update(configFileNames.join('\n')).digest('hex').slice(0, 12);
   const rootDirectory = join(tmpdir(), `storybook-screenshots-fontconfig-${contentHash}`);
   const includeDirectory = join(rootDirectory, 'conf.d');
   const configFilePath = join(rootDirectory, 'fonts.conf');

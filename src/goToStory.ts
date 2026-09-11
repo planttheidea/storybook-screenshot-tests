@@ -14,11 +14,7 @@ function getGlobalsParameter(globals: Record<string, string>): string {
  * Globals travel in the URL because a preview decorator that writes an attribute
  * from a global cannot be driven by Playwright's `colorScheme` alone.
  */
-export async function goToStory(
-  page: Page,
-  storyId: string,
-  globals: Record<string, string>,
-): Promise<void> {
+export async function goToStory(page: Page, storyId: string, globals: Record<string, string>): Promise<void> {
   const globalsParameter = getGlobalsParameter(globals);
   const suffix = globalsParameter ? `&globals=${globalsParameter}` : '';
 
@@ -44,9 +40,7 @@ async function waitForResources(page: Page): Promise<void> {
       requestAnimationFrame: (callback: () => void) => void;
     };
 
-    const elements = Array.from(
-      window.document.querySelectorAll('img, link[rel="stylesheet"], script[src]'),
-    );
+    const elements = Array.from(window.document.querySelectorAll('img, link[rel="stylesheet"], script[src]'));
 
     const allLoaded = Promise.all(
       elements
@@ -61,10 +55,14 @@ async function waitForResources(page: Page): Promise<void> {
     );
 
     const timeout = new Promise<void>((_, reject) =>
-      setTimeout(() => reject(new Error('Timed out waiting for resources to load')), 5000),
+      setTimeout(() => {
+        reject(new Error('Timed out waiting for resources to load'));
+      }, 5000),
     );
 
     await Promise.race([allLoaded, timeout]);
-    await new Promise<void>((resolve) => window.requestAnimationFrame(resolve));
+    await new Promise<void>((resolve) => {
+      window.requestAnimationFrame(resolve);
+    });
   });
 }

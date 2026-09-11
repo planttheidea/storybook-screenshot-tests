@@ -59,10 +59,10 @@ interface StorybookServerOptions {
      */
     env?: Record<string, string>;
     /**
-       * Signal to ask with, and how long to wait, before the group is killed.
-       * Defaults to `SIGTERM` after 5 seconds, which is what keeps a Storybook
-       * server from outliving the run and answering for the next one.
-       */
+     * Signal to ask with, and how long to wait, before the group is killed.
+     * Defaults to `SIGTERM` after 5 seconds, which is what keeps a Storybook
+     * server from outliving the run and answering for the next one.
+     */
     gracefulShutdown?: {
         signal: 'SIGINT' | 'SIGTERM';
         timeout: number;
@@ -179,7 +179,7 @@ interface RegisterScreenshotTestsInput {
  * tests when it loads a file — there is no fixture or `testInfo` yet, which is
  * why the manifest travels through disk rather than through the config object.
  */
-declare function registerScreenshotTests({ test: baseTest, expect, }: RegisterScreenshotTestsInput): void;
+declare function registerScreenshotTests({ test: baseTest, expect }: RegisterScreenshotTestsInput): void;
 
 /**
  * One line per story, plus enough on failure to act without opening a trace.

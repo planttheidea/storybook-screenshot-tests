@@ -1,14 +1,8 @@
-import type {
-  FullResult,
-  Reporter,
-  TestCase,
-  TestError,
-  TestResult,
-} from '@playwright/test/reporter';
+import { stripVTControlCharacters } from 'node:util';
+import type { FullResult, Reporter, TestCase, TestError, TestResult } from '@playwright/test/reporter';
 import color from 'picocolors';
 
 const TRAILING_ZERO = /\.0$/;
-const ANSI = /\[[0-9;]*m/g;
 
 /** Formats milliseconds as a readable duration, e.g. "1m14s", "4.2s", "736ms". */
 function getFormattedDuration(milliseconds: number): string {
@@ -28,10 +22,15 @@ function getFormattedDuration(milliseconds: number): string {
   return `${Math.round(milliseconds)}ms`;
 }
 
+/**
+ * Playwright colors its error messages, and those codes are noise once the text
+ * is re-indented under a heading. `stripVTControlCharacters` handles the whole
+ * escape sequence rather than the visible tail a hand-written pattern catches.
+ */
 function getErrorText(error: TestError): string {
   const text = error.message ?? error.value ?? error.stack ?? 'Unknown error';
 
-  return text.replace(ANSI, '').trim();
+  return stripVTControlCharacters(text).trim();
 }
 
 function getIndented(text: string, prefix = '    '): string {
@@ -80,9 +79,7 @@ export class ScreenshotReporter implements Reporter {
 
     const label = titlePath.join(color.cyan(' › '));
 
-    console.log(
-      `${status} ${color.gray(`[${projectName}]`)} ${label} (${getFormattedDuration(result.duration)})`,
-    );
+    console.log(`${status} ${color.gray(`[${projectName}]`)} ${label} (${getFormattedDuration(result.duration)})`);
   }
 
   /** Errors that belong to the run rather than to a test — a config or load failure. */

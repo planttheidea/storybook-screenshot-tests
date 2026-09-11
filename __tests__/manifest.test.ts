@@ -59,9 +59,7 @@ describe('deriveManifest', () => {
 
   it('strips spaces from story names when building the key', () => {
     const manifest = deriveManifest(
-      createIndex([
-        { id: 'a--v', title: 'Foundation/Button', name: 'Validation Error', tags: ['screenshot'] },
-      ]),
+      createIndex([{ id: 'a--v', title: 'Foundation/Button', name: 'Validation Error', tags: ['screenshot'] }]),
       tags,
     );
 
@@ -138,10 +136,7 @@ describe('deriveManifest', () => {
       new Set(['./src/B/B.stories.tsx']),
     );
 
-    expect(manifest.allImportPaths.sort()).toEqual([
-      './src/A/A.stories.tsx',
-      './src/B/B.stories.tsx',
-    ]);
+    expect(manifest.allImportPaths.sort()).toEqual(['./src/A/A.stories.tsx', './src/B/B.stories.tsx']);
   });
 
   it('deduplicates import paths shared by sibling stories', () => {
@@ -170,17 +165,15 @@ describe('deriveManifest', () => {
   });
 
   it('throws when a captured story has no import path to derive a location from', () => {
-    const index = createIndex([
-      { id: 'a--one', title: 'A', name: 'One', tags: ['screenshot'], importPath: undefined },
-    ]);
+    const index = createIndex([{ id: 'a--one', title: 'A', name: 'One', tags: ['screenshot'], importPath: undefined }]);
 
     expect(() => deriveManifest(index, tags)).toThrow(/no importPath/);
   });
 
   it('throws when nothing carries the screenshot tag', () => {
-    expect(() =>
-      deriveManifest(createIndex([{ id: 'a--one', title: 'A', name: 'One', tags: [] }]), tags),
-    ).toThrow(/No stories tagged "screenshot"/);
+    expect(() => deriveManifest(createIndex([{ id: 'a--one', title: 'A', name: 'One', tags: [] }]), tags)).toThrow(
+      /No stories tagged "screenshot"/,
+    );
   });
 
   it('does not throw when every tagged story is filtered out by the affected set', () => {

@@ -69,15 +69,15 @@ describe('defineScreenshotConfig webServer', () => {
 
   it('lets explicit environment entries win over the nx defaults', () => {
     expect(
-      createConfig({ nx: true, storybookServer: { env: { NX_TUI: 'true', PORT: '7007' } } })
-        .webServer,
+      createConfig({ nx: true, storybookServer: { env: { NX_TUI: 'true', PORT: '7007' } } }).webServer,
     ).toMatchObject({ env: { NX_DAEMON: 'false', NX_TUI: 'true', PORT: '7007' } });
   });
 
   it('keeps the nx environment when other server overrides are also given', () => {
-    expect(
-      createConfig({ nx: true, storybookServer: { timeout: 60_000 } }).webServer,
-    ).toMatchObject({ timeout: 60_000, env: { NX_DAEMON: 'false', NX_TUI: 'false' } });
+    expect(createConfig({ nx: true, storybookServer: { timeout: 60_000 } }).webServer).toMatchObject({
+      timeout: 60_000,
+      env: { NX_DAEMON: 'false', NX_TUI: 'false' },
+    });
   });
 
   it('omits the server entirely when no command is given', () => {

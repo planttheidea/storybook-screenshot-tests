@@ -23,9 +23,7 @@ describe('resolveOptions', () => {
   it('prefers an explicit url over the environment', () => {
     process.env.STORYBOOK_URL = 'http://localhost:7007';
 
-    expect(resolveOptions({ projects, storybookUrl: 'http://explicit' }, '/app').storybookUrl).toBe(
-      'http://explicit',
-    );
+    expect(resolveOptions({ projects, storybookUrl: 'http://explicit' }, '/app').storybookUrl).toBe('http://explicit');
   });
 
   it('falls back to the environment url', () => {
@@ -42,18 +40,19 @@ describe('resolveOptions', () => {
   });
 
   it('normalizes a fixed time to an iso string so the result is json-safe', () => {
-    const resolved = resolveOptions(
-      { projects, fixedTime: new Date('2026-07-15T12:00:00.000Z') },
-      '/app',
-    );
+    const resolved = resolveOptions({ projects, fixedTime: new Date('2026-07-15T12:00:00.000Z') }, '/app');
 
     expect(resolved.fixedTime).toBe('2026-07-15T12:00:00.000Z');
-    expect(JSON.parse(JSON.stringify(resolved)).fixedTime).toBe('2026-07-15T12:00:00.000Z');
+
+    const parsedResolved = JSON.parse(JSON.stringify(resolved)) as Record<string, any>;
+
+    expect(parsedResolved.fixedTime).toBe('2026-07-15T12:00:00.000Z');
   });
 
   it('leaves an already-serialized fixed time alone', () => {
-    expect(resolveOptions({ projects, fixedTime: '2026-07-15T12:00:00.000Z' }, '/app').fixedTime)
-      .toBe('2026-07-15T12:00:00.000Z');
+    expect(resolveOptions({ projects, fixedTime: '2026-07-15T12:00:00.000Z' }, '/app').fixedTime).toBe(
+      '2026-07-15T12:00:00.000Z',
+    );
   });
 
   it('records the root directory it was given', () => {
@@ -78,7 +77,9 @@ describe('resolveOptions server overrides', () => {
       '/app',
     );
 
-    expect(JSON.parse(JSON.stringify(resolved)).storybookServer).toEqual({
+    const parsedResolved = JSON.parse(JSON.stringify(resolved)) as Record<string, any>;
+
+    expect(parsedResolved.storybookServer).toEqual({
       env: { NX_DAEMON: 'false' },
       gracefulShutdown: { signal: 'SIGTERM', timeout: 5000 },
     });

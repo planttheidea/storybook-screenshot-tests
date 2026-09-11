@@ -4,7 +4,7 @@ import type { AffectedOptions } from './options.js';
 
 interface CruiseModule {
   source: string;
-  dependencies: { resolved: string }[];
+  dependencies: Array<{ resolved: string }>;
 }
 
 const DIFF_LINE = /^[+-]/;
@@ -170,11 +170,7 @@ function getPackageName(resolvedPath: string): string {
  * source, and it means edits to that package's source are invisible here — the
  * story silently will not re-run.
  */
-function registerBuildOutput(
-  source: string,
-  repositoryRoot: string,
-  buildOutputPackages: Set<string>,
-): void {
+function registerBuildOutput(source: string, repositoryRoot: string, buildOutputPackages: Set<string>): void {
   const match = /^(.*)\/(?:dist|build|lib|out-tsc)\//.exec(source);
 
   if (match?.[1]) {
@@ -205,9 +201,7 @@ function hasVisualDependencyChange(
     cwd: repositoryRoot,
     encoding: 'utf-8',
   });
-  const changedLines = lockDiff
-    .split('\n')
-    .filter((line) => DIFF_LINE.test(line) && !DIFF_HEADER.test(line));
+  const changedLines = lockDiff.split('\n').filter((line) => DIFF_LINE.test(line) && !DIFF_HEADER.test(line));
 
   return [...externalPackages].some((packageName) =>
     changedLines.some((line) => line.includes(lockfile.getMatcher(packageName))),

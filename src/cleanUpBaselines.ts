@@ -48,10 +48,7 @@ export function getBaselineDirectories(rootDirectory: string, prefix = ''): stri
  * exist inside each of its project subdirectories.
  * @internal Exported for tests.
  */
-export function getExpectedBaselines(
-  stories: StoryRecord[],
-  projectNames: string[],
-): Map<string, Set<string>> {
+export function getExpectedBaselines(stories: StoryRecord[], projectNames: string[]): Map<string, Set<string>> {
   const expected = new Map<string, Set<string>>();
 
   for (const story of stories) {
@@ -84,11 +81,7 @@ export function getExpectedBaselines(
  * affected-story detection would delete the baselines of every story the run
  * skipped, silently rebaselining them on the next full run.
  */
-export function cleanUpBaselines(
-  rootDirectory: string,
-  stories: StoryRecord[],
-  projectNames: string[],
-): void {
+export function cleanUpBaselines(rootDirectory: string, stories: StoryRecord[], projectNames: string[]): void {
   if (!existsSync(rootDirectory)) {
     return;
   }

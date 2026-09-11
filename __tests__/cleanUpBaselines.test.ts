@@ -2,11 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import {
-  cleanUpBaselines,
-  getBaselineDirectories,
-  getExpectedBaselines,
-} from '../src/cleanUpBaselines.js';
+import { cleanUpBaselines, getBaselineDirectories, getExpectedBaselines } from '../src/cleanUpBaselines.js';
 import type { StoryRecord } from '../src/manifest.js';
 
 function createStory(overrides: Partial<StoryRecord> = {}): StoryRecord {
@@ -43,12 +39,8 @@ describe('getExpectedBaselines', () => {
   it('lists one file per story per project', () => {
     const expected = getExpectedBaselines([createStory()], ['light', 'dark']);
 
-    expect([...(expected.get('src/components/Button/__screenshots__/light') ?? [])]).toEqual([
-      'Button-Variants.png',
-    ]);
-    expect([...(expected.get('src/components/Button/__screenshots__/dark') ?? [])]).toEqual([
-      'Button-Variants.png',
-    ]);
+    expect([...(expected.get('src/components/Button/__screenshots__/light') ?? [])]).toEqual(['Button-Variants.png']);
+    expect([...(expected.get('src/components/Button/__screenshots__/dark') ?? [])]).toEqual(['Button-Variants.png']);
   });
 
   it('groups sibling stories from the same file together', () => {
@@ -133,6 +125,8 @@ describe('cleanUpBaselines', () => {
   });
 
   it('does nothing when the root does not exist', () => {
-    expect(() => cleanUpBaselines(resolve(root, 'absent'), [createStory()], ['light'])).not.toThrow();
+    expect(() => {
+      cleanUpBaselines(resolve(root, 'absent'), [createStory()], ['light']);
+    }).not.toThrow();
   });
 });

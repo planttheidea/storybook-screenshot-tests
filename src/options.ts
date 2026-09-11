@@ -57,7 +57,7 @@ export interface StorybookServerOptions {
    * Playwright kills — otherwise a stale server survives to answer the next run.
    */
   env?: Record<string, string>;
-/**
+  /**
    * Signal to ask with, and how long to wait, before the group is killed.
    * Defaults to `SIGTERM` after 5 seconds, which is what keeps a Storybook
    * server from outliving the run and answering for the next one.

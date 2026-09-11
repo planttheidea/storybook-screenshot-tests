@@ -37,11 +37,7 @@ describe('getStoryKeyParts', () => {
 describe('deriveBaselineSegments', () => {
   it('places the baseline beside the story source', () => {
     expect(
-      deriveBaselineSegments(
-        './src/components/Button/Button.stories.tsx',
-        'Foundation/Button/Variants',
-        'light',
-      ),
+      deriveBaselineSegments('./src/components/Button/Button.stories.tsx', 'Foundation/Button/Variants', 'light'),
     ).toEqual(['src', 'components', 'Button', '__screenshots__', 'light', 'Button-Variants.png']);
   });
 

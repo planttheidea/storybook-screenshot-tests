@@ -24,10 +24,7 @@ export type BaseTest = TestType<PlaywrightTestArgs & PlaywrightTestOptions, Work
 /** The `expect` object exported by `@playwright/test`. */
 export type BaseExpect = typeof baseExpect;
 
-export type ScreenshotTest = TestType<
-  PlaywrightTestArgs & PlaywrightTestOptions & ScreenshotOptions,
-  WorkerArgs
->;
+export type ScreenshotTest = TestType<PlaywrightTestArgs & PlaywrightTestOptions & ScreenshotOptions, WorkerArgs>;
 
 /**
  * Extends the runner's own `test` with the per-project Storybook globals.

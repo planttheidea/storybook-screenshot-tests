@@ -1,5 +1,5 @@
-import type { BrowserType } from '@playwright/test';
 import { relative } from 'node:path';
+import type { BrowserType } from '@playwright/test';
 import color from 'picocolors';
 import { deriveAffected } from './affected.js';
 import { cleanUpBaselines } from './cleanUpBaselines.js';
@@ -49,10 +49,10 @@ export async function globalSetup(browserType: BrowserType): Promise<void> {
       options.projects.map((project) => project.name),
     );
 
+    const { capturedCount, totalCount } = manifest;
+
     const coverage =
-      manifest.capturedCount === manifest.totalCount
-        ? `all ${manifest.totalCount} stories`
-        : `${manifest.capturedCount} of ${manifest.totalCount} stories`;
+      capturedCount === totalCount ? `all ${totalCount} stories` : `${capturedCount} of ${totalCount} stories`;
 
     console.log(`Manifest written, capturing ${coverage}.`);
 
@@ -60,11 +60,7 @@ export async function globalSetup(browserType: BrowserType): Promise<void> {
 
     if (firstStory) {
       await warmUpServer(browserType, 'Storybook', (page) =>
-        waitForStoryRender(
-          page,
-          `${options.storybookUrl}/iframe.html?id=${firstStory.id}&viewMode=story`,
-          60_000,
-        ),
+        waitForStoryRender(page, `${options.storybookUrl}/iframe.html?id=${firstStory.id}&viewMode=story`, 60_000),
       );
     }
   } catch (error) {
