@@ -1,0 +1,86 @@
+import { afterEach, describe, expect, it } from 'vitest';
+import { resolveOptions } from '../src/options.js';
+
+const projects = [{ name: 'light' }];
+
+afterEach(() => {
+  delete process.env.STORYBOOK_URL;
+});
+
+describe('resolveOptions', () => {
+  it('applies the default storybook url, generated directory, and tags', () => {
+    const resolved = resolveOptions({ projects }, '/app');
+
+    expect(resolved.storybookUrl).toBe('http://localhost:6006');
+    expect(resolved.generatedDir).toBe('__generated__/screenshots');
+    expect(resolved.tags).toEqual({
+      screenshot: 'screenshot',
+      failing: 'screenshot:failing',
+      domainPrefix: 'domain:',
+    });
+  });
+
+  it('prefers an explicit url over the environment', () => {
+    process.env.STORYBOOK_URL = 'http://localhost:7007';
+
+    expect(resolveOptions({ projects, storybookUrl: 'http://explicit' }, '/app').storybookUrl).toBe(
+      'http://explicit',
+    );
+  });
+
+  it('falls back to the environment url', () => {
+    process.env.STORYBOOK_URL = 'http://localhost:7007';
+
+    expect(resolveOptions({ projects }, '/app').storybookUrl).toBe('http://localhost:7007');
+  });
+
+  it('merges partial tag overrides over the defaults', () => {
+    const { tags } = resolveOptions({ projects, tags: { screenshot: 'visual' } }, '/app');
+
+    expect(tags.screenshot).toBe('visual');
+    expect(tags.failing).toBe('screenshot:failing');
+  });
+
+  it('normalizes a fixed time to an iso string so the result is json-safe', () => {
+    const resolved = resolveOptions(
+      { projects, fixedTime: new Date('2026-07-15T12:00:00.000Z') },
+      '/app',
+    );
+
+    expect(resolved.fixedTime).toBe('2026-07-15T12:00:00.000Z');
+    expect(JSON.parse(JSON.stringify(resolved)).fixedTime).toBe('2026-07-15T12:00:00.000Z');
+  });
+
+  it('leaves an already-serialized fixed time alone', () => {
+    expect(resolveOptions({ projects, fixedTime: '2026-07-15T12:00:00.000Z' }, '/app').fixedTime)
+      .toBe('2026-07-15T12:00:00.000Z');
+  });
+
+  it('records the root directory it was given', () => {
+    expect(resolveOptions({ projects }, '/somewhere/app').rootDir).toBe('/somewhere/app');
+  });
+});
+
+describe('resolveOptions server overrides', () => {
+  it('defaults to no server overrides', () => {
+    expect(resolveOptions({ projects }, '/app').storybookServer).toEqual({});
+  });
+
+  it('carries server overrides through, json-safe', () => {
+    const resolved = resolveOptions(
+      {
+        projects,
+        storybookServer: {
+          env: { NX_DAEMON: 'false' },
+          gracefulShutdown: { signal: 'SIGTERM', timeout: 5000 },
+        },
+      },
+      '/app',
+    );
+
+    expect(JSON.parse(JSON.stringify(resolved)).storybookServer).toEqual({
+      env: { NX_DAEMON: 'false' },
+      gracefulShutdown: { signal: 'SIGTERM', timeout: 5000 },
+    });
+  });
+});
