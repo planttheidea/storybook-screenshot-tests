@@ -47,6 +47,29 @@ export interface AffectedOptions {
   cruiseOptions?: Record<string, unknown>;
   /** Lockfile to watch for dependency bumps, relative to the repository root. */
   lockfile?: string;
+  /**
+   * Paths whose change captures every story, regardless of the module graph.
+   *
+   * Affected detection walks what the stories import, which is the right
+   * default and blind to everything that reaches a story without being
+   * imported by one: a Storybook preview holding global decorators, the
+   * stylesheets that preview pulls in, a design-token file the CSS consumes.
+   * Change one of those and every baseline moves while the graph reports
+   * nothing — so the run captures nothing and the diff ships unchecked.
+   *
+   * Repository-relative. A directory entry matches everything beneath it, with
+   * or without a trailing slash. This config module and the `.storybook`
+   * directory beside it are always included, so a project only declares what is
+   * specific to it.
+   *
+   * ```ts
+   * affected: {
+   *   baseRef: process.env.NX_BASE,
+   *   fullRerunPaths: ['apps/web/src/styles'],
+   * }
+   * ```
+   */
+  fullRerunPaths?: string[];
 }
 
 /** Fields merged into the generated Storybook `webServer` entry. */
@@ -127,9 +150,21 @@ const DEFAULT_TAGS: TagOptions = {
   domainPrefix: 'domain:',
 };
 
-/** Applies defaults and normalizes `fixedTime` to an ISO string so the result is JSON-safe. */
-export function resolveOptions(options: ScreenshotConfigOptions, rootDir: string): ResolvedOptions {
+/**
+ * Applies defaults and normalizes `fixedTime` to an ISO string so the result is
+ * JSON-safe.
+ *
+ * `defaultFullRerunPaths` are the ones every consumer shares — this config
+ * module and Storybook's own directory — prepended rather than left to each
+ * one to declare. A project's own list adds what is specific to it.
+ */
+export function resolveOptions(
+  options: ScreenshotConfigOptions,
+  rootDir: string,
+  defaultFullRerunPaths: string[] = [],
+): ResolvedOptions {
   const fixedTime = options.fixedTime;
+  const fullRerunPaths = [...new Set([...defaultFullRerunPaths, ...(options.affected?.fullRerunPaths ?? [])])];
 
   return {
     storybookUrl: options.storybookUrl ?? process.env.STORYBOOK_URL ?? 'http://localhost:6006',
@@ -141,6 +176,6 @@ export function resolveOptions(options: ScreenshotConfigOptions, rootDir: string
     fixedTime: fixedTime instanceof Date ? fixedTime.toISOString() : fixedTime,
     projects: options.projects,
     tags: { ...DEFAULT_TAGS, ...options.tags },
-    affected: options.affected ?? {},
+    affected: { ...options.affected, fullRerunPaths },
   };
 }

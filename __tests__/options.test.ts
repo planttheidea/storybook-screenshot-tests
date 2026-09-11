@@ -85,3 +85,37 @@ describe('resolveOptions server overrides', () => {
     });
   });
 });
+
+describe('resolveOptions full-rerun paths', () => {
+  it('defaults to nothing when the caller supplies no paths', () => {
+    expect(resolveOptions({ projects }, '/app').affected.fullRerunPaths).toEqual([]);
+  });
+
+  it('carries the shared defaults through', () => {
+    const resolved = resolveOptions({ projects }, '/app', ['apps/web/screenshots.config.ts', 'apps/web/.storybook']);
+
+    expect(resolved.affected.fullRerunPaths).toEqual(['apps/web/screenshots.config.ts', 'apps/web/.storybook']);
+  });
+
+  it('appends the project own paths after the defaults', () => {
+    const resolved = resolveOptions({ projects, affected: { fullRerunPaths: ['apps/web/src/styles'] } }, '/app', [
+      'apps/web/.storybook',
+    ]);
+
+    expect(resolved.affected.fullRerunPaths).toEqual(['apps/web/.storybook', 'apps/web/src/styles']);
+  });
+
+  it('deduplicates a path the project also declared', () => {
+    const resolved = resolveOptions({ projects, affected: { fullRerunPaths: ['apps/web/.storybook'] } }, '/app', [
+      'apps/web/.storybook',
+    ]);
+
+    expect(resolved.affected.fullRerunPaths).toEqual(['apps/web/.storybook']);
+  });
+
+  it('preserves the rest of the affected options', () => {
+    const resolved = resolveOptions({ projects, affected: { baseRef: 'main' } }, '/app', ['a.ts']);
+
+    expect(resolved.affected.baseRef).toBe('main');
+  });
+});

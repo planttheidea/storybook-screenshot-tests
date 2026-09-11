@@ -10,6 +10,7 @@ interface CruiseModule {
 const DIFF_LINE = /^[+-]/;
 const DIFF_HEADER = /^[+-]{3}/;
 const LEADING_DOT_SLASH = /^\.\//;
+const TRAILING_SLASH = /\/+$/;
 
 const LOCKFILES = [
   { file: 'yarn.lock', getMatcher: (name: string) => `${name}@npm:` },
@@ -42,8 +43,8 @@ export interface AffectedResult {
  * and `node_modules` falls out without an exclusion rule.
  *
  * Returns `undefined` for the import paths, meaning "capture everything", when
- * no base ref is set, when nothing changed, or when a dependency the stories
- * actually reach changed version.
+ * no base ref is set, when nothing changed, when a declared full-rerun path
+ * changed, or when a dependency the stories actually reach changed version.
  */
 export async function deriveAffected({
   repositoryRoot,
@@ -67,6 +68,13 @@ export async function deriveAffected({
   }
 
   const changedFiles = changedOutput.split('\n').filter(Boolean);
+
+  // Checked before the cruise, which is the expensive half: if everything is
+  // being captured anyway, there is no graph worth building.
+  if (hasFullRerunPathChange(changedFiles, options.fullRerunPaths)) {
+    return { importPaths: undefined, buildOutputPackages: [] };
+  }
+
   const entryPoints = storyImportPaths.map((importPath) =>
     relative(repositoryRoot, resolve(projectRoot, importPath.replace(LEADING_DOT_SLASH, ''))),
   );
@@ -154,6 +162,24 @@ export function findAffectedStories(
   }
 
   return [...stories];
+}
+
+/**
+ * Whether the diff touched a path declared as capturing everything.
+ *
+ * An entry matches the file it names, and — treated as a directory — everything
+ * beneath it. The separator is appended rather than assumed, so `src/styles`
+ * covers `src/styles/global.css` without also covering `src/styles-legacy.css`.
+ * @internal Exported for tests.
+ */
+export function hasFullRerunPathChange(changedFiles: string[], fullRerunPaths: string[] = []): boolean {
+  return changedFiles.some((file) =>
+    fullRerunPaths.some((fullRerunPath) => {
+      const normalized = fullRerunPath.replace(TRAILING_SLASH, '');
+
+      return file === normalized || file.startsWith(`${normalized}/`);
+    }),
+  );
 }
 
 /** Extracts `name` or `@scope/name` from a `node_modules/...` path. */

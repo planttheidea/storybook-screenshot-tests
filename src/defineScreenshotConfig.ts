@@ -1,15 +1,17 @@
-import { resolve } from 'node:path';
+import { dirname, relative, resolve } from 'node:path';
 import type { PlaywrightTestConfig } from '@playwright/test';
 import { setGeneratedFiles } from './generateFiles.js';
 import type { ScreenshotConfigOptions, ScreenshotProjectOptions } from './options.js';
 import { resolveOptions } from './options.js';
-import { GENERATED_DIR_VARIABLE, getCallerDirectory, getRepositoryRoot } from './paths.js';
+import { GENERATED_DIR_VARIABLE, getCallerFile, getRepositoryRoot } from './paths.js';
 
 /**
  * Keeps an Nx-launched Storybook inside the process group Playwright kills.
  * The daemon and the TUI each run the task somewhere Playwright's group kill
  * cannot reach, which leaves the server listening after the run.
  */
+const STORYBOOK_DIRECTORY = '.storybook';
+
 const NX_ENVIRONMENT = {
   // biome-ignore lint/style/useNamingConvention: environment variable names.
   NX_DAEMON: 'false',
@@ -54,8 +56,18 @@ function createProject(project: ScreenshotProjectOptions) {
  * loaded a second time in one process.
  */
 export function defineScreenshotConfig(options: ScreenshotConfigOptions): PlaywrightTestConfig {
-  const rootDirectory = options.rootDir ?? getCallerDirectory();
-  const resolved = resolveOptions(options, rootDirectory);
+  const callerFile = getCallerFile();
+  const rootDirectory = options.rootDir ?? (callerFile ? dirname(callerFile) : process.cwd());
+  const repositoryRoot = getRepositoryRoot(rootDirectory);
+  const resolved = resolveOptions(options, rootDirectory, [
+    // This config module: every consumer has one, no story imports it, and a new
+    // project or a different viewport in it moves every baseline.
+    ...(callerFile ? [relative(repositoryRoot, callerFile)] : []),
+    // Storybook's own configuration, for the same reason — a preview decorator
+    // or a global stylesheet it pulls in reaches every story without any story
+    // importing it.
+    relative(repositoryRoot, resolve(rootDirectory, STORYBOOK_DIRECTORY)),
+  ]);
   const generatedDirectory = resolve(rootDirectory, resolved.generatedDir);
 
   setGeneratedFiles(generatedDirectory, resolved);
@@ -74,7 +86,7 @@ export function defineScreenshotConfig(options: ScreenshotConfigOptions): Playwr
         command: resolved.storybookCommand,
         url: resolved.storybookUrl,
         reuseExistingServer: !isContinuousIntegration,
-        cwd: getRepositoryRoot(rootDirectory),
+        cwd: repositoryRoot,
         timeout: 120_000,
         // Ask first, force second: Storybook closes its own sockets on SIGTERM,
         // and anything still standing after that is killed with the group.

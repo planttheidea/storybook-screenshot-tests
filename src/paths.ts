@@ -18,11 +18,13 @@ const STACK_FILE = /\(?(file:\/\/\/[^)\s]+?):\d+:\d+\)?$/;
 
 /**
  * Walks the call stack for the first frame outside this library — the config
- * file that called `defineScreenshotConfig` — and returns its directory.
- * Falls back to the working directory, which is correct when Playwright is
- * invoked from the package it tests.
+ * file that called `defineScreenshotConfig`.
+ *
+ * Returns `undefined` when no such frame is found, which is what a bundled or
+ * otherwise stack-less caller looks like. Callers that need a path of their own
+ * fall back rather than guessing.
  */
-export function getCallerDirectory(): string {
+export function getCallerFile(): string | undefined {
   const stack = new Error().stack ?? '';
 
   for (const line of stack.split('\n').slice(1)) {
@@ -38,10 +40,19 @@ export function getCallerDirectory(): string {
       continue;
     }
 
-    return dirname(filePath);
+    return filePath;
   }
+}
 
-  return process.cwd();
+/**
+ * Directory of the config file that called `defineScreenshotConfig`. Falls back
+ * to the working directory, which is correct when Playwright is invoked from
+ * the package it tests.
+ */
+export function getCallerDirectory(): string {
+  const callerFile = getCallerFile();
+
+  return callerFile ? dirname(callerFile) : process.cwd();
 }
 
 /** Absolute path of the generated directory, as published by the config-load process. */
