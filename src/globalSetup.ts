@@ -46,12 +46,14 @@ export async function globalSetup(browserType: BrowserType): Promise<void> {
     setManifest(manifest);
     cleanUpBaselines(options.rootDir, everyStory.stories);
 
-    const { capturedCount, totalCount } = manifest;
-
-    const coverage =
-      capturedCount === totalCount ? `all ${totalCount} screenshots` : `${capturedCount} of ${totalCount} screenshots`;
-
-    console.log(`Manifest written, capturing ${coverage}.`);
+    // No count here: `--project`, `--grep`, and the rest are applied after
+    // global setup, so any number this could print may overstate the run. The
+    // reporter prints the real one once Playwright has filtered.
+    console.log(
+      manifest.capturedCount < manifest.totalCount
+        ? `Manifest written, narrowed to stories affected since ${options.affected.baseRef}.`
+        : 'Manifest written.',
+    );
 
     const firstStory = manifest.stories[0];
 

@@ -1,5 +1,13 @@
 import { stripVTControlCharacters } from 'node:util';
-import type { FullResult, Reporter, TestCase, TestError, TestResult } from '@playwright/test/reporter';
+import type {
+  FullConfig,
+  FullResult,
+  Reporter,
+  Suite,
+  TestCase,
+  TestError,
+  TestResult,
+} from '@playwright/test/reporter';
 import color from 'picocolors';
 
 const TRAILING_ZERO = /\.0$/;
@@ -46,7 +54,7 @@ interface Failure {
 }
 
 /**
- * One line per story, plus enough on failure to act without opening a trace.
+ * One line per screenshot, plus enough on failure to act without opening a trace.
  *
  * Run-level errors and a closing summary are reported as well: a suite that
  * registers no tests exits non-zero with nothing else to show, and silence
@@ -57,6 +65,19 @@ export class ScreenshotReporter implements Reporter {
   private runErrors: TestError[] = [];
   private passedCount = 0;
   private skippedCount = 0;
+
+  /**
+   * Called once Playwright has applied every filter — `--project`, `--grep`,
+   * `--last-failed`, a test path, affected stories — and before the first test
+   * starts, so this count is the run as it will actually happen.
+   */
+  onBegin(_config: FullConfig, suite: Suite): void {
+    const count = suite.allTests().length;
+
+    if (count > 0) {
+      console.log(`Capturing ${count} screenshot${count === 1 ? '' : 's'}.\n`);
+    }
+  }
 
   onTestEnd(test: TestCase, result: TestResult): void {
     const projectName = test.parent.project()?.name ?? 'unknown';

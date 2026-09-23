@@ -148,16 +148,17 @@ built on both wants both.
 
 ## Tags
 
-| Option              | Default              | What it selects                                                  |
-| ------------------- | -------------------- | ---------------------------------------------------------------- |
-| `tags.screenshot`   | `screenshot`         | Stories to capture, in every project or in the projects named    |
-| `tags.failing`      | `screenshot:failing` | Stories registered with `test.fixme()` instead of being captured |
-| `tags.domainPrefix` | `domain:`            | Prefix whose suffix groups stories in the reporter               |
+| Option              | Default               | What it selects                                                  |
+| ------------------- | --------------------- | ---------------------------------------------------------------- |
+| `tags.screenshot`   | `screenshot`          | Stories to capture, in every project or in the projects named    |
+| `tags.failing`      | `screenshot:failing`  | Stories registered with `test.fixme()` instead of being captured |
+| `tags.disabled`     | `screenshot:disabled` | Stories not captured at all, whatever else they carry            |
+| `tags.domainPrefix` | `domain:`             | Prefix whose suffix groups stories in the reporter               |
 
 ### Targeting projects
 
 The bare `screenshot` tag captures a story in every project. `screenshot:<project>` captures it in that project only,
-and several of them combine:
+and several of them capture it in exactly those:
 
 ```ts
 export const Sidebar: StoryObj<typeof meta> = {
@@ -165,20 +166,25 @@ export const Sidebar: StoryObj<typeof meta> = {
 };
 ```
 
-A targeted story is never registered for the other projects, rather than being registered and skipped, so it doesn't
-show up in their reporter output or in `--list`. Tagging a story with a project that doesn't exist throws, naming the
-story, so a typo can't quietly capture too much or nothing at all.
+Project tags replace the bare tag rather than adding to it. Storybook merges a story's tags with its meta's into one
+list, so a meta tagged `screenshot` and a story tagged `screenshot:tablet` reads as a story carrying both — and the
+story is captured on the tablet only, which is almost always what narrowing a story means.
 
-Storybook merges a story's tags with its meta's. If the meta carries the bare `screenshot` tag, the story is still
-captured everywhere, so remove the inherited tag with `!screenshot`:
+To take one story out of a meta-wide tag altogether, tag it `screenshot:disabled`. It wins over everything else the
+story carries:
 
 ```ts
-const meta = { tags: ['screenshot'] /* ... */ } satisfies Meta<typeof Sidebar>;
+const meta = { tags: ['screenshot'] /* ... */ } satisfies Meta<typeof Board>;
 
-export const Collapsed: StoryObj<typeof meta> = {
-  tags: ['!screenshot', 'screenshot:tablet'],
-};
+export const Collapsed: StoryObj<typeof meta> = { tags: ['screenshot:tablet'] };
+
+export const Animated: StoryObj<typeof meta> = { tags: ['screenshot:disabled'] };
 ```
+
+A targeted story is never registered for the other projects, rather than being registered and skipped, so it doesn't
+show up in their reporter output, in `--list`, or in the count printed before the run. Tagging a story with a project
+that doesn't exist throws, naming the story, so a typo can't quietly capture too much or nothing at all. A project can't
+be named `failing` or `disabled`, since its tag would collide with those.
 
 Under the hood each project gets a Playwright `grep` that picks out its own tests, and targeted tests carry tags like
 `@screenshot:tablet`. A `grep` you set through the `playwright` option doesn't reach the projects; use `--grep` on the
@@ -205,7 +211,7 @@ Override any of them when your workspace already has a tag convention:
 
 ```ts
 defineScreenshotConfig({
-  tags: { screenshot: 'vrt', failing: 'vrt:failing', domainPrefix: 'team:' },
+  tags: { screenshot: 'vrt', failing: 'vrt:failing', disabled: 'vrt:off', domainPrefix: 'team:' },
   projects: [...],
 });
 ```
@@ -380,7 +386,7 @@ directory. You don't normally call them yourself.
 | `globalSetup(chromium)`   | The global-setup step. Takes the runner's own `chromium` so warm-up uses its browsers |
 | `registerScreenshotTests` | Builds the test tree. Takes the runner's own `test` and `expect`                      |
 | `createScreenshotTest`    | Extends a `test` object with the `storybookGlobals` fixture option                    |
-| `ScreenshotReporter`      | One line per story, a block per failure, and a closing summary                        |
+| `ScreenshotReporter`      | The exact count up front, one line per screenshot, a block per failure, and a summary |
 
 Types are exported for all of it: `ScreenshotConfigOptions`, `ScreenshotProjectOptions`, `StorybookServerOptions`,
 `TagOptions`, `AffectedOptions`, `RegisterScreenshotTestsInput`, `ScreenshotOptions`, `ScreenshotTest`, `BaseTest`,

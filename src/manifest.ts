@@ -54,15 +54,21 @@ export async function getStoryIndex(storybookUrl: string): Promise<StoryIndex> {
 }
 
 /**
- * Returns the projects a story is captured in, or `undefined` when it carries
- * no screenshot tag at all.
+ * Returns the projects a story is captured in, or `undefined` when it is not
+ * captured at all.
  *
- * The bare tag selects every project, and `<tag>:<project>` selects that one —
- * several of them select their union. A failing tag that is itself a `<tag>:*`
- * variant selects the story without narrowing it, so on its own it means every
- * project. Any other `<tag>:*`
- * suffix is almost certainly a misspelled project name, and throws rather than
- * silently capturing too much or nothing at all.
+ * The bare tag selects every project. `<tag>:<project>` narrows the story to
+ * that project, and several of them to exactly those — any project tag
+ * replaces the bare one rather than adding to it. That matters because
+ * Storybook flattens preview, meta, and story tags into one list with no record
+ * of where each came from, so a story narrowing a meta's bare tag looks
+ * identical to one carrying both.
+ *
+ * The disabled tag opts a story out entirely, which is how a single story
+ * leaves a meta-wide tag. A failing tag that is itself a `<tag>:*` variant
+ * selects the story without narrowing it. Any other `<tag>:*` suffix is almost
+ * certainly a misspelled project name, and throws rather than silently
+ * capturing too much or nothing at all.
  * @internal Exported for tests.
  */
 export function getStoryProjects(
@@ -70,16 +76,18 @@ export function getStoryProjects(
   tags: TagOptions,
   projectNames: string[],
 ): string[] | undefined {
+  if (entry.tags.includes(tags.disabled)) {
+    return undefined;
+  }
+
   const prefix = `${tags.screenshot}:`;
   const selected = new Set<string>();
 
   let isTagged = false;
-  let isEveryProject = false;
 
   for (const tag of entry.tags) {
     if (tag === tags.screenshot) {
       isTagged = true;
-      isEveryProject = true;
     } else if (tag.startsWith(prefix)) {
       isTagged = true;
 
@@ -104,9 +112,7 @@ export function getStoryProjects(
     return undefined;
   }
 
-  return isEveryProject || selected.size === 0
-    ? projectNames
-    : projectNames.filter((projectName) => selected.has(projectName));
+  return selected.size === 0 ? projectNames : projectNames.filter((projectName) => selected.has(projectName));
 }
 
 /**

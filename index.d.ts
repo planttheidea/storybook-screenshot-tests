@@ -1,5 +1,5 @@
 import { TestType, PlaywrightTestArgs, PlaywrightTestOptions, PlaywrightWorkerArgs, PlaywrightWorkerOptions, expect, PlaywrightTestConfig, BrowserType } from '@playwright/test';
-import { Reporter, TestCase, TestResult, TestError, FullResult } from '@playwright/test/reporter';
+import { Reporter, FullConfig, Suite, TestCase, TestResult, TestError, FullResult } from '@playwright/test/reporter';
 
 /** A single capture variant — one device/theme combination producing one baseline per story. */
 interface ScreenshotProjectOptions {
@@ -30,11 +30,17 @@ interface ScreenshotProjectOptions {
 interface TagOptions {
     /**
      * Stories carrying this tag are captured in every project. `<tag>:<project>`
-     * captures a story in that project only, and several combine.
+     * captures a story in that project only, several of them in exactly those,
+     * and any of them replaces the bare tag rather than adding to it.
      */
     screenshot: string;
     /** Stories carrying this tag are registered with `test.fixme()`. */
     failing: string;
+    /**
+     * Stories carrying this tag are not captured, whatever else they carry —
+     * how one story opts out of a tag inherited from its meta.
+     */
+    disabled: string;
     /** Prefix whose suffix groups stories in the reporter, e.g. `domain:budgets`. */
     domainPrefix: string;
 }
@@ -208,7 +214,7 @@ interface RegisterScreenshotTestsInput {
 declare function registerScreenshotTests({ test: baseTest, expect }: RegisterScreenshotTestsInput): void;
 
 /**
- * One line per story, plus enough on failure to act without opening a trace.
+ * One line per screenshot, plus enough on failure to act without opening a trace.
  *
  * Run-level errors and a closing summary are reported as well: a suite that
  * registers no tests exits non-zero with nothing else to show, and silence
@@ -219,6 +225,12 @@ declare class ScreenshotReporter implements Reporter {
     private runErrors;
     private passedCount;
     private skippedCount;
+    /**
+     * Called once Playwright has applied every filter — `--project`, `--grep`,
+     * `--last-failed`, a test path, affected stories — and before the first test
+     * starts, so this count is the run as it will actually happen.
+     */
+    onBegin(_config: FullConfig, suite: Suite): void;
     onTestEnd(test: TestCase, result: TestResult): void;
     /** Errors that belong to the run rather than to a test — a config or load failure. */
     onError(error: TestError): void;

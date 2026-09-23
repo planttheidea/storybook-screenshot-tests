@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { deriveManifest } from '../src/manifest.js';
+import { deriveManifest, getStoryProjects } from '../src/manifest.js';
 import type { TagOptions } from '../src/options.js';
 
 const tags: TagOptions = {
   screenshot: 'screenshot',
   failing: 'screenshot:failing',
+  disabled: 'screenshot:disabled',
   domainPrefix: 'domain:',
 };
 
@@ -87,7 +88,7 @@ describe('deriveManifest', () => {
   it('honors custom tag names', () => {
     const manifest = deriveManifest(
       createIndex([{ id: 'a--one', title: 'A', name: 'One', tags: ['visual', 'area:core'] }]),
-      { screenshot: 'visual', failing: 'visual:broken', domainPrefix: 'area:' },
+      { screenshot: 'visual', failing: 'visual:broken', disabled: 'visual:off', domainPrefix: 'area:' },
       projects,
     );
 
@@ -204,8 +205,7 @@ describe('deriveManifest project targeting', () => {
   const allProjects = ['desktop', 'tablet', 'tablet-landscape', 'mobile'];
 
   function getProjects(storyTags: string[]) {
-    return deriveManifest(createIndex([{ id: 'a--one', title: 'A', name: 'One', tags: storyTags }]), tags, allProjects)
-      .stories[0]?.projects;
+    return getStoryProjects({ title: 'A', name: 'One', tags: storyTags }, tags, allProjects);
   }
 
   it('captures a bare-tagged story in every project', () => {
@@ -220,8 +220,24 @@ describe('deriveManifest project targeting', () => {
     expect(getProjects(['screenshot:tablet-landscape', 'screenshot:tablet'])).toEqual(['tablet', 'tablet-landscape']);
   });
 
-  it('lets the bare tag win over a project tag', () => {
-    expect(getProjects(['screenshot', 'screenshot:tablet'])).toEqual(allProjects);
+  it('lets project tags replace the bare tag, as when narrowing a meta-wide tag', () => {
+    expect(getProjects(['screenshot', 'screenshot:tablet'])).toEqual(['tablet']);
+    expect(getProjects(['screenshot', 'screenshot:tablet', 'screenshot:mobile'])).toEqual(['tablet', 'mobile']);
+  });
+
+  it('opts a story out entirely with the disabled tag, whatever else it carries', () => {
+    expect(getProjects(['screenshot', 'screenshot:disabled'])).toBeUndefined();
+    expect(getProjects(['screenshot:tablet', 'screenshot:failing', 'screenshot:disabled'])).toBeUndefined();
+  });
+
+  it('does not count a disabled story as tagged', () => {
+    expect(() =>
+      deriveManifest(
+        createIndex([{ id: 'a--one', title: 'A', name: 'One', tags: ['screenshot', 'screenshot:disabled'] }]),
+        tags,
+        allProjects,
+      ),
+    ).toThrow(/No stories tagged/);
   });
 
   it('keeps a failing story in every project unless a project is named', () => {

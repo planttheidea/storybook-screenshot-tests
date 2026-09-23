@@ -16,6 +16,7 @@ describe('resolveOptions', () => {
     expect(resolved.tags).toEqual({
       screenshot: 'screenshot',
       failing: 'screenshot:failing',
+      disabled: 'screenshot:disabled',
       domainPrefix: 'domain:',
     });
   });
@@ -39,8 +40,9 @@ describe('resolveOptions', () => {
     expect(tags.failing).toBe('screenshot:failing');
   });
 
-  it('rejects a project whose targeting tag would be the failing tag', () => {
+  it('rejects a project whose targeting tag would be a reserved tag', () => {
     expect(() => resolveOptions({ projects: [{ name: 'failing' }] }, '/app')).toThrow(/Project "failing"/);
+    expect(() => resolveOptions({ projects: [{ name: 'disabled' }] }, '/app')).toThrow(/Project "disabled"/);
     expect(() =>
       resolveOptions({ projects: [{ name: 'failing' }], tags: { failing: 'screenshot:broken' } }, '/app'),
     ).not.toThrow();
