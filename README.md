@@ -22,6 +22,9 @@ every run, the test tree is built from that, and baselines for stories that no l
   - [Where baselines live](#where-baselines-live)
   - [Projects](#projects)
   - [Tags](#tags)
+    - [Targeting projects](#targeting-projects)
+    - [Known failures](#known-failures)
+    - [Domains](#domains)
   - [Affected stories only](#affected-stories-only)
     - [What the graph cannot see](#what-the-graph-cannot-see)
     - [Dependency and build-output widening](#dependency-and-build-output-widening)
@@ -118,16 +121,16 @@ The file name is the component name — the last segment of the story's `title` 
 removed. The directory comes from the story's `importPath`, so a moved story file moves its baselines with it.
 
 Global setup walks the tree for `__screenshots__` directories on every run and removes any file that no story claims,
-then prunes the directories left empty. Untag a story, rename it, or delete it, and its baseline goes away in the same
-run — there is nothing to clean up by hand.
+then prunes the directories left empty. Untag a story, rename it, delete it, or narrow it to fewer projects, and the
+baselines it no longer produces go away in the same run — there is nothing to clean up by hand.
 
 Everything the run generates for itself goes in `generatedDir` (`__generated__/screenshots` by default), which is
 written with a `.gitignore` of its own. It does not need an entry in yours.
 
 ## Projects
 
-Each entry in `projects` is one capture variant, producing one baseline per story. Beyond `name`, every field is
-optional:
+Each entry in `projects` is one capture variant, producing one baseline per story captured in it — every tagged story,
+unless [its tags target specific projects](#targeting-projects). Beyond `name`, every field is optional:
 
 | Field         | What it does                                                             |
 | ------------- | ------------------------------------------------------------------------ |
@@ -145,20 +148,61 @@ built on both wants both.
 
 ## Tags
 
-| Option              | Default              | What it selects                                                  |
-| ------------------- | -------------------- | ---------------------------------------------------------------- |
-| `tags.screenshot`   | `screenshot`         | Stories to capture — the bare tag or any `screenshot:*` variant  |
-| `tags.failing`      | `screenshot:failing` | Stories registered with `test.fixme()` instead of being captured |
-| `tags.domainPrefix` | `domain:`            | Prefix whose suffix groups stories in the reporter               |
+| Option              | Default               | What it selects                                                  |
+| ------------------- | --------------------- | ---------------------------------------------------------------- |
+| `tags.screenshot`   | `screenshot`          | Stories to capture, in every project or in the projects named    |
+| `tags.failing`      | `screenshot:failing`  | Stories registered with `test.fixme()` instead of being captured |
+| `tags.disabled`     | `screenshot:disabled` | Stories not captured at all, whatever else they carry            |
+| `tags.domainPrefix` | `domain:`             | Prefix whose suffix groups stories in the reporter               |
 
-Because any `screenshot:*` variant selects a story, `screenshot:failing` both selects and marks one. A story that is
-known to be broken stays in the suite, reported as expected-to-fail, without a second tag:
+### Targeting projects
+
+The bare `screenshot` tag captures a story in every project. `screenshot:<project>` captures it in that project only,
+and several of them capture it in exactly those:
+
+```ts
+export const Sidebar: StoryObj<typeof meta> = {
+  tags: ['screenshot:tablet', 'screenshot:tablet-landscape'],
+};
+```
+
+Project tags replace the bare tag rather than adding to it. Storybook merges a story's tags with its meta's into one
+list, so a meta tagged `screenshot` and a story tagged `screenshot:tablet` reads as a story carrying both — and the
+story is captured on the tablet only, which is almost always what narrowing a story means.
+
+To take one story out of a meta-wide tag altogether, tag it `screenshot:disabled`. It wins over everything else the
+story carries:
+
+```ts
+const meta = { tags: ['screenshot'] /* ... */ } satisfies Meta<typeof Board>;
+
+export const Collapsed: StoryObj<typeof meta> = { tags: ['screenshot:tablet'] };
+
+export const Animated: StoryObj<typeof meta> = { tags: ['screenshot:disabled'] };
+```
+
+A targeted story is never registered for the other projects, rather than being registered and skipped, so it doesn't
+show up in their reporter output, in `--list`, or in the count printed before the run. Tagging a story with a project
+that doesn't exist throws, naming the story, so a typo can't quietly capture too much or nothing at all. A project can't
+be named `failing` or `disabled`, since its tag would collide with those.
+
+Under the hood each project gets a Playwright `grep` that picks out its own tests, and targeted tests carry tags like
+`@screenshot:tablet`. A `grep` you set through the `playwright` option doesn't reach the projects; use `--grep` on the
+command line instead, which still applies on top.
+
+### Known failures
+
+`screenshot:failing` both selects a story and marks it, so a story that is known to be broken stays in the suite,
+reported as expected-to-fail, without a second tag. On its own it keeps the story in every project; alongside a project
+tag, only that project:
 
 ```ts
 export const PendingRedesign: StoryObj<typeof meta> = {
   tags: ['screenshot:failing'],
 };
 ```
+
+### Domains
 
 The domain tag only affects grouping. A story tagged `domain:accounts` is reported under `accounts`; one with no domain
 tag is reported under `uncategorized`.
@@ -167,7 +211,7 @@ Override any of them when your workspace already has a tag convention:
 
 ```ts
 defineScreenshotConfig({
-  tags: { screenshot: 'vrt', failing: 'vrt:failing', domainPrefix: 'team:' },
+  tags: { screenshot: 'vrt', failing: 'vrt:failing', disabled: 'vrt:off', domainPrefix: 'team:' },
   projects: [...],
 });
 ```
@@ -342,7 +386,7 @@ directory. You don't normally call them yourself.
 | `globalSetup(chromium)`   | The global-setup step. Takes the runner's own `chromium` so warm-up uses its browsers |
 | `registerScreenshotTests` | Builds the test tree. Takes the runner's own `test` and `expect`                      |
 | `createScreenshotTest`    | Extends a `test` object with the `storybookGlobals` fixture option                    |
-| `ScreenshotReporter`      | One line per story, a block per failure, and a closing summary                        |
+| `ScreenshotReporter`      | The exact count up front, one line per screenshot, a block per failure, and a summary |
 
 Types are exported for all of it: `ScreenshotConfigOptions`, `ScreenshotProjectOptions`, `StorybookServerOptions`,
 `TagOptions`, `AffectedOptions`, `RegisterScreenshotTestsInput`, `ScreenshotOptions`, `ScreenshotTest`, `BaseTest`,

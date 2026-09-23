@@ -12,6 +12,7 @@ function createStory(overrides: Partial<StoryRecord> = {}): StoryRecord {
     importPath: './src/components/Button/Button.stories.tsx',
     domain: 'foundation',
     failing: false,
+    projects: ['light'],
     ...overrides,
   };
 }
@@ -37,17 +38,14 @@ function setBaseline(relativePath: string): string {
 
 describe('getExpectedBaselines', () => {
   it('lists one file per story per project', () => {
-    const expected = getExpectedBaselines([createStory()], ['light', 'dark']);
+    const expected = getExpectedBaselines([createStory({ projects: ['light', 'dark'] })]);
 
     expect([...(expected.get('src/components/Button/__screenshots__/light') ?? [])]).toEqual(['Button-Variants.png']);
     expect([...(expected.get('src/components/Button/__screenshots__/dark') ?? [])]).toEqual(['Button-Variants.png']);
   });
 
   it('groups sibling stories from the same file together', () => {
-    const expected = getExpectedBaselines(
-      [createStory(), createStory({ key: 'Foundation/Button/SectionLink' })],
-      ['light'],
-    );
+    const expected = getExpectedBaselines([createStory(), createStory({ key: 'Foundation/Button/SectionLink' })]);
 
     expect([...(expected.get('src/components/Button/__screenshots__/light') ?? [])].sort()).toEqual([
       'Button-SectionLink.png',
@@ -80,7 +78,7 @@ describe('cleanUpBaselines', () => {
   it('keeps baselines that still have a story', () => {
     const kept = setBaseline('src/components/Button/__screenshots__/light/Button-Variants.png');
 
-    cleanUpBaselines(root, [createStory()], ['light']);
+    cleanUpBaselines(root, [createStory()]);
 
     expect(existsSync(kept)).toBe(true);
   });
@@ -89,7 +87,7 @@ describe('cleanUpBaselines', () => {
     const kept = setBaseline('src/components/Button/__screenshots__/light/Button-Variants.png');
     const removed = setBaseline('src/components/Button/__screenshots__/light/Button-Removed.png');
 
-    cleanUpBaselines(root, [createStory()], ['light']);
+    cleanUpBaselines(root, [createStory()]);
 
     expect(existsSync(kept)).toBe(true);
     expect(existsSync(removed)).toBe(false);
@@ -99,7 +97,7 @@ describe('cleanUpBaselines', () => {
     setBaseline('src/components/Gone/__screenshots__/light/Gone-Default.png');
     setBaseline('src/components/Button/__screenshots__/light/Button-Variants.png');
 
-    cleanUpBaselines(root, [createStory()], ['light']);
+    cleanUpBaselines(root, [createStory()]);
 
     expect(existsSync(resolve(root, 'src/components/Gone/__screenshots__'))).toBe(false);
   });
@@ -108,7 +106,7 @@ describe('cleanUpBaselines', () => {
     setBaseline('src/components/Button/__screenshots__/retired/Button-Variants.png');
     setBaseline('src/components/Button/__screenshots__/light/Button-Variants.png');
 
-    cleanUpBaselines(root, [createStory()], ['light']);
+    cleanUpBaselines(root, [createStory()]);
 
     expect(existsSync(resolve(root, 'src/components/Button/__screenshots__/retired'))).toBe(false);
     expect(existsSync(resolve(root, 'src/components/Button/__screenshots__/light'))).toBe(true);
@@ -118,15 +116,30 @@ describe('cleanUpBaselines', () => {
     const light = setBaseline('src/components/Button/__screenshots__/light/Button-Variants.png');
     const dark = setBaseline('src/components/Button/__screenshots__/dark/Button-Variants.png');
 
-    cleanUpBaselines(root, [createStory()], ['light', 'dark']);
+    cleanUpBaselines(root, [createStory({ projects: ['light', 'dark'] })]);
 
     expect(existsSync(light)).toBe(true);
     expect(existsSync(dark)).toBe(true);
   });
 
+  it('removes the baseline of a project a story is no longer captured in', () => {
+    const tablet = setBaseline('src/components/Button/__screenshots__/tablet/Button-Variants.png');
+    const light = setBaseline('src/components/Button/__screenshots__/light/Button-Variants.png');
+    const lightSibling = setBaseline('src/components/Button/__screenshots__/light/Button-SectionLink.png');
+
+    cleanUpBaselines(root, [
+      createStory({ projects: ['tablet'] }),
+      createStory({ key: 'Foundation/Button/SectionLink', projects: ['light', 'tablet'] }),
+    ]);
+
+    expect(existsSync(tablet)).toBe(true);
+    expect(existsSync(light)).toBe(false);
+    expect(existsSync(lightSibling)).toBe(true);
+  });
+
   it('does nothing when the root does not exist', () => {
     expect(() => {
-      cleanUpBaselines(resolve(root, 'absent'), [createStory()], ['light']);
+      cleanUpBaselines(resolve(root, 'absent'), [createStory()]);
     }).not.toThrow();
   });
 });

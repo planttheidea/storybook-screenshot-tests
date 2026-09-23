@@ -25,10 +25,19 @@ export interface ScreenshotProjectOptions {
 
 /** Storybook tags that select and classify stories. Defaults match the documented convention. */
 export interface TagOptions {
-  /** Stories carrying this tag (or a `<tag>:*` variant) are captured. */
+  /**
+   * Stories carrying this tag are captured in every project. `<tag>:<project>`
+   * captures a story in that project only, several of them in exactly those,
+   * and any of them replaces the bare tag rather than adding to it.
+   */
   screenshot: string;
   /** Stories carrying this tag are registered with `test.fixme()`. */
   failing: string;
+  /**
+   * Stories carrying this tag are not captured, whatever else they carry —
+   * how one story opts out of a tag inherited from its meta.
+   */
+  disabled: string;
   /** Prefix whose suffix groups stories in the reporter, e.g. `domain:budgets`. */
   domainPrefix: string;
 }
@@ -147,6 +156,7 @@ export interface ResolvedOptions {
 const DEFAULT_TAGS: TagOptions = {
   screenshot: 'screenshot',
   failing: 'screenshot:failing',
+  disabled: 'screenshot:disabled',
   domainPrefix: 'domain:',
 };
 
@@ -165,6 +175,19 @@ export function resolveOptions(
 ): ResolvedOptions {
   const fixedTime = options.fixedTime;
   const fullRerunPaths = [...new Set([...defaultFullRerunPaths, ...(options.affected?.fullRerunPaths ?? [])])];
+  const tags = { ...DEFAULT_TAGS, ...options.tags };
+
+  // `<tag>:<project>` narrows a story to that project, so a project whose tag
+  // is also the failing or disabled tag could not be told apart from it.
+  for (const reserved of [tags.failing, tags.disabled]) {
+    const shadowed = options.projects.find((project) => `${tags.screenshot}:${project.name}` === reserved);
+
+    if (shadowed) {
+      throw new Error(
+        `Project "${shadowed.name}" cannot be targeted, because "${reserved}" is a reserved tag. Rename the project.`,
+      );
+    }
+  }
 
   return {
     storybookUrl: options.storybookUrl ?? process.env.STORYBOOK_URL ?? 'http://localhost:6006',
@@ -175,7 +198,7 @@ export function resolveOptions(
     generatedDir: options.generatedDir ?? '__generated__/screenshots',
     fixedTime: fixedTime instanceof Date ? fixedTime.toISOString() : fixedTime,
     projects: options.projects,
-    tags: { ...DEFAULT_TAGS, ...options.tags },
+    tags,
     affected: { ...options.affected, fullRerunPaths },
   };
 }

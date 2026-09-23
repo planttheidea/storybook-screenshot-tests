@@ -27,9 +27,10 @@ export async function globalSetup(browserType: BrowserType): Promise<void> {
     await setFontConfigOverride();
 
     const options = getResolvedOptions();
+    const projectNames = options.projects.map((project) => project.name);
 
     const index = await getStoryIndex(options.storybookUrl);
-    const everyStory = deriveManifest(index, options.tags);
+    const everyStory = deriveManifest(index, options.tags, projectNames);
 
     const { importPaths, buildOutputPackages } = await deriveAffected({
       repositoryRoot: getRepositoryRoot(options.rootDir),
@@ -40,21 +41,19 @@ export async function globalSetup(browserType: BrowserType): Promise<void> {
 
     reportBuildOutputPackages(buildOutputPackages, options.rootDir);
 
-    const manifest = deriveManifest(index, options.tags, importPaths);
+    const manifest = deriveManifest(index, options.tags, projectNames, importPaths);
 
     setManifest(manifest);
-    cleanUpBaselines(
-      options.rootDir,
-      everyStory.stories,
-      options.projects.map((project) => project.name),
+    cleanUpBaselines(options.rootDir, everyStory.stories);
+
+    // No count here: `--project`, `--grep`, and the rest are applied after
+    // global setup, so any number this could print may overstate the run. The
+    // reporter prints the real one once Playwright has filtered.
+    console.log(
+      manifest.capturedCount < manifest.totalCount
+        ? `Manifest written, narrowed to stories affected since ${options.affected.baseRef}.`
+        : 'Manifest written.',
     );
-
-    const { capturedCount, totalCount } = manifest;
-
-    const coverage =
-      capturedCount === totalCount ? `all ${totalCount} stories` : `${capturedCount} of ${totalCount} stories`;
-
-    console.log(`Manifest written, capturing ${coverage}.`);
 
     const firstStory = manifest.stories[0];
 
