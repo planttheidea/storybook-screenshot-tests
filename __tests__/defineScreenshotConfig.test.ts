@@ -123,6 +123,18 @@ describe('defineScreenshotConfig projects', () => {
   it('defaults globals to an empty object for apps that do not use them', () => {
     expect(getFirstProjectUse().storybookGlobals).toEqual({});
   });
+
+  it('gives each project a grep that collects only its own targeted tests', () => {
+    const config = createConfig({
+      projects: [{ name: 'tablet' }, { name: 'mobile' }],
+      tags: { screenshot: 'vrt' },
+    });
+    const [tablet, mobile] = config.projects ?? [];
+
+    expect(tablet?.grep).toEqual(expect.any(RegExp));
+    expect((tablet?.grep as RegExp).test('Button Default @vrt:tablet')).toBe(true);
+    expect((mobile?.grep as RegExp).test('Button Default @vrt:tablet')).toBe(false);
+  });
 });
 
 describe('defineScreenshotConfig snapshots', () => {

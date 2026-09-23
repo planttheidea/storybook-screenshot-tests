@@ -2,6 +2,7 @@ import { goToStory } from './goToStory.js';
 import type { StoryRecord } from './manifest.js';
 import { getManifest } from './manifest.js';
 import { getResolvedOptions } from './paths.js';
+import { getProjectTag } from './projectTags.js';
 import type { BaseExpect, BaseTest } from './screenshotTest.js';
 import { createScreenshotTest } from './screenshotTest.js';
 import { deriveBaselineSegments, getComponentName, getStoryKeyParts } from './storyPath.js';
@@ -55,8 +56,14 @@ export function registerScreenshotTests({ test: baseTest, expect }: RegisterScre
         test.describe(componentName, () => {
           for (const story of componentStories) {
             const { name } = getStoryKeyParts(story.key);
+            // Untagged tests run in every project; tagged ones only where each
+            // project's `grep` finds its own tag.
+            const tag =
+              story.projects.length < options.projects.length
+                ? story.projects.map((projectName) => getProjectTag(options.tags.screenshot, projectName))
+                : [];
 
-            test(name, async ({ page, storybookGlobals }, testInfo) => {
+            test(name, { tag }, async ({ page, storybookGlobals }, testInfo) => {
               test.fixme(story.failing, `Known failure — tagged ${options.tags.failing}`);
 
               await goToStory(page, story.id, storybookGlobals);

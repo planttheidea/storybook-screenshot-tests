@@ -45,16 +45,18 @@ export function getBaselineDirectories(rootDirectory: string, prefix = ''): stri
 
 /**
  * Maps each `__screenshots__` directory to the baseline file names that should
- * exist inside each of its project subdirectories.
+ * exist inside each of its project subdirectories. Only the projects a story is
+ * captured in are expected, so narrowing a story to fewer projects removes the
+ * baselines of the ones it left.
  * @internal Exported for tests.
  */
-export function getExpectedBaselines(stories: StoryRecord[], projectNames: string[]): Map<string, Set<string>> {
+export function getExpectedBaselines(stories: StoryRecord[]): Map<string, Set<string>> {
   const expected = new Map<string, Set<string>>();
 
   for (const story of stories) {
     const directory = deriveBaselineDirectory(story.importPath);
 
-    for (const projectName of projectNames) {
+    for (const projectName of story.projects) {
       const segments = deriveBaselineSegments(story.importPath, story.key, projectName);
       const fileName = segments[segments.length - 1];
 
@@ -74,19 +76,19 @@ export function getExpectedBaselines(stories: StoryRecord[], projectNames: strin
 }
 
 /**
- * Removes baselines for stories that no longer carry the screenshot tag, then
- * prunes the directories left empty.
+ * Removes baselines for stories that no longer carry the screenshot tag, or no
+ * longer carry it for a given project, then prunes the directories left empty.
  *
  * `stories` must be the complete, unfiltered set. Handing it a set narrowed by
  * affected-story detection would delete the baselines of every story the run
  * skipped, silently rebaselining them on the next full run.
  */
-export function cleanUpBaselines(rootDirectory: string, stories: StoryRecord[], projectNames: string[]): void {
+export function cleanUpBaselines(rootDirectory: string, stories: StoryRecord[]): void {
   if (!existsSync(rootDirectory)) {
     return;
   }
 
-  const expected = getExpectedBaselines(stories, projectNames);
+  const expected = getExpectedBaselines(stories);
 
   for (const directory of getBaselineDirectories(rootDirectory)) {
     const absoluteDirectory = resolve(rootDirectory, directory);

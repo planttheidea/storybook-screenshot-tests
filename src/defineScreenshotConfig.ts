@@ -4,6 +4,7 @@ import { setGeneratedFiles } from './generateFiles.js';
 import type { ScreenshotConfigOptions, ScreenshotProjectOptions } from './options.js';
 import { resolveOptions } from './options.js';
 import { GENERATED_DIR_VARIABLE, getCallerFile, getRepositoryRoot } from './paths.js';
+import { getProjectGrep } from './projectTags.js';
 
 /**
  * Keeps an Nx-launched Storybook inside the process group Playwright kills.
@@ -27,9 +28,10 @@ const LAUNCH_OPTIONS = {
   args: ['--disable-lcd-text', '--disable-font-subpixel-positioning', '--font-render-hinting=none'],
 };
 
-function createProject(project: ScreenshotProjectOptions) {
+function createProject(project: ScreenshotProjectOptions, screenshotTag: string) {
   return {
     name: project.name,
+    grep: getProjectGrep(screenshotTag, project.name),
     use: {
       ...project.device,
       launchOptions: LAUNCH_OPTIONS,
@@ -127,7 +129,7 @@ export function defineScreenshotConfig(options: ScreenshotConfigOptions): Playwr
     // built from each story's importPath land beside the story.
     snapshotPathTemplate: '{arg}{ext}',
     ...(webServer ? { webServer } : {}),
-    projects: resolved.projects.map(createProject),
+    projects: resolved.projects.map((project) => createProject(project, resolved.tags.screenshot)),
     ...options.playwright,
   };
 

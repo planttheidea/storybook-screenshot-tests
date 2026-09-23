@@ -28,7 +28,10 @@ interface ScreenshotProjectOptions {
 }
 /** Storybook tags that select and classify stories. Defaults match the documented convention. */
 interface TagOptions {
-    /** Stories carrying this tag (or a `<tag>:*` variant) are captured. */
+    /**
+     * Stories carrying this tag are captured in every project. `<tag>:<project>`
+     * captures a story in that project only, and several combine.
+     */
     screenshot: string;
     /** Stories carrying this tag are registered with `test.fixme()`. */
     failing: string;
@@ -230,12 +233,16 @@ interface StoryRecord {
     importPath: string;
     domain: string;
     failing: boolean;
+    /** Names of the projects this story is captured in — every project, unless its tags name specific ones. */
+    projects: string[];
 }
 interface Manifest {
     stories: StoryRecord[];
     /** Story import paths present in Storybook, before any affected filtering. */
     allImportPaths: string[];
+    /** Screenshots this run captures — one per story per project it is captured in. */
     capturedCount: number;
+    /** Screenshots across every tagged story, before any affected filtering. */
     totalCount: number;
 }
 

@@ -25,7 +25,10 @@ export interface ScreenshotProjectOptions {
 
 /** Storybook tags that select and classify stories. Defaults match the documented convention. */
 export interface TagOptions {
-  /** Stories carrying this tag (or a `<tag>:*` variant) are captured. */
+  /**
+   * Stories carrying this tag are captured in every project. `<tag>:<project>`
+   * captures a story in that project only, and several combine.
+   */
   screenshot: string;
   /** Stories carrying this tag are registered with `test.fixme()`. */
   failing: string;
@@ -165,6 +168,17 @@ export function resolveOptions(
 ): ResolvedOptions {
   const fixedTime = options.fixedTime;
   const fullRerunPaths = [...new Set([...defaultFullRerunPaths, ...(options.affected?.fullRerunPaths ?? [])])];
+  const tags = { ...DEFAULT_TAGS, ...options.tags };
+
+  // `<tag>:<project>` narrows a story to that project, so a project whose tag
+  // is also the failing tag could not be told apart from it.
+  const shadowed = options.projects.find((project) => `${tags.screenshot}:${project.name}` === tags.failing);
+
+  if (shadowed) {
+    throw new Error(
+      `Project "${shadowed.name}" cannot be targeted, because "${tags.failing}" is the failing tag. Rename the project.`,
+    );
+  }
 
   return {
     storybookUrl: options.storybookUrl ?? process.env.STORYBOOK_URL ?? 'http://localhost:6006',
@@ -175,7 +189,7 @@ export function resolveOptions(
     generatedDir: options.generatedDir ?? '__generated__/screenshots',
     fixedTime: fixedTime instanceof Date ? fixedTime.toISOString() : fixedTime,
     projects: options.projects,
-    tags: { ...DEFAULT_TAGS, ...options.tags },
+    tags,
     affected: { ...options.affected, fullRerunPaths },
   };
 }

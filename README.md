@@ -22,6 +22,9 @@ every run, the test tree is built from that, and baselines for stories that no l
   - [Where baselines live](#where-baselines-live)
   - [Projects](#projects)
   - [Tags](#tags)
+    - [Targeting projects](#targeting-projects)
+    - [Known failures](#known-failures)
+    - [Domains](#domains)
   - [Affected stories only](#affected-stories-only)
     - [What the graph cannot see](#what-the-graph-cannot-see)
     - [Dependency and build-output widening](#dependency-and-build-output-widening)
@@ -118,16 +121,16 @@ The file name is the component name — the last segment of the story's `title` 
 removed. The directory comes from the story's `importPath`, so a moved story file moves its baselines with it.
 
 Global setup walks the tree for `__screenshots__` directories on every run and removes any file that no story claims,
-then prunes the directories left empty. Untag a story, rename it, or delete it, and its baseline goes away in the same
-run — there is nothing to clean up by hand.
+then prunes the directories left empty. Untag a story, rename it, delete it, or narrow it to fewer projects, and the
+baselines it no longer produces go away in the same run — there is nothing to clean up by hand.
 
 Everything the run generates for itself goes in `generatedDir` (`__generated__/screenshots` by default), which is
 written with a `.gitignore` of its own. It does not need an entry in yours.
 
 ## Projects
 
-Each entry in `projects` is one capture variant, producing one baseline per story. Beyond `name`, every field is
-optional:
+Each entry in `projects` is one capture variant, producing one baseline per story captured in it — every tagged story,
+unless [its tags target specific projects](#targeting-projects). Beyond `name`, every field is optional:
 
 | Field         | What it does                                                             |
 | ------------- | ------------------------------------------------------------------------ |
@@ -147,18 +150,53 @@ built on both wants both.
 
 | Option              | Default              | What it selects                                                  |
 | ------------------- | -------------------- | ---------------------------------------------------------------- |
-| `tags.screenshot`   | `screenshot`         | Stories to capture — the bare tag or any `screenshot:*` variant  |
+| `tags.screenshot`   | `screenshot`         | Stories to capture, in every project or in the projects named    |
 | `tags.failing`      | `screenshot:failing` | Stories registered with `test.fixme()` instead of being captured |
 | `tags.domainPrefix` | `domain:`            | Prefix whose suffix groups stories in the reporter               |
 
-Because any `screenshot:*` variant selects a story, `screenshot:failing` both selects and marks one. A story that is
-known to be broken stays in the suite, reported as expected-to-fail, without a second tag:
+### Targeting projects
+
+The bare `screenshot` tag captures a story in every project. `screenshot:<project>` captures it in that project only,
+and several of them combine:
+
+```ts
+export const Sidebar: StoryObj<typeof meta> = {
+  tags: ['screenshot:tablet', 'screenshot:tablet-landscape'],
+};
+```
+
+A targeted story is never registered for the other projects, rather than being registered and skipped, so it doesn't
+show up in their reporter output or in `--list`. Tagging a story with a project that doesn't exist throws, naming the
+story, so a typo can't quietly capture too much or nothing at all.
+
+Storybook merges a story's tags with its meta's. If the meta carries the bare `screenshot` tag, the story is still
+captured everywhere, so remove the inherited tag with `!screenshot`:
+
+```ts
+const meta = { tags: ['screenshot'] /* ... */ } satisfies Meta<typeof Sidebar>;
+
+export const Collapsed: StoryObj<typeof meta> = {
+  tags: ['!screenshot', 'screenshot:tablet'],
+};
+```
+
+Under the hood each project gets a Playwright `grep` that picks out its own tests, and targeted tests carry tags like
+`@screenshot:tablet`. A `grep` you set through the `playwright` option doesn't reach the projects; use `--grep` on the
+command line instead, which still applies on top.
+
+### Known failures
+
+`screenshot:failing` both selects a story and marks it, so a story that is known to be broken stays in the suite,
+reported as expected-to-fail, without a second tag. On its own it keeps the story in every project; alongside a project
+tag, only that project:
 
 ```ts
 export const PendingRedesign: StoryObj<typeof meta> = {
   tags: ['screenshot:failing'],
 };
 ```
+
+### Domains
 
 The domain tag only affects grouping. A story tagged `domain:accounts` is reported under `accounts`; one with no domain
 tag is reported under `uncategorized`.

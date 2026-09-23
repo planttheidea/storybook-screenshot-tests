@@ -27,9 +27,10 @@ export async function globalSetup(browserType: BrowserType): Promise<void> {
     await setFontConfigOverride();
 
     const options = getResolvedOptions();
+    const projectNames = options.projects.map((project) => project.name);
 
     const index = await getStoryIndex(options.storybookUrl);
-    const everyStory = deriveManifest(index, options.tags);
+    const everyStory = deriveManifest(index, options.tags, projectNames);
 
     const { importPaths, buildOutputPackages } = await deriveAffected({
       repositoryRoot: getRepositoryRoot(options.rootDir),
@@ -40,19 +41,15 @@ export async function globalSetup(browserType: BrowserType): Promise<void> {
 
     reportBuildOutputPackages(buildOutputPackages, options.rootDir);
 
-    const manifest = deriveManifest(index, options.tags, importPaths);
+    const manifest = deriveManifest(index, options.tags, projectNames, importPaths);
 
     setManifest(manifest);
-    cleanUpBaselines(
-      options.rootDir,
-      everyStory.stories,
-      options.projects.map((project) => project.name),
-    );
+    cleanUpBaselines(options.rootDir, everyStory.stories);
 
     const { capturedCount, totalCount } = manifest;
 
     const coverage =
-      capturedCount === totalCount ? `all ${totalCount} stories` : `${capturedCount} of ${totalCount} stories`;
+      capturedCount === totalCount ? `all ${totalCount} screenshots` : `${capturedCount} of ${totalCount} screenshots`;
 
     console.log(`Manifest written, capturing ${coverage}.`);
 

@@ -39,6 +39,13 @@ describe('resolveOptions', () => {
     expect(tags.failing).toBe('screenshot:failing');
   });
 
+  it('rejects a project whose targeting tag would be the failing tag', () => {
+    expect(() => resolveOptions({ projects: [{ name: 'failing' }] }, '/app')).toThrow(/Project "failing"/);
+    expect(() =>
+      resolveOptions({ projects: [{ name: 'failing' }], tags: { failing: 'screenshot:broken' } }, '/app'),
+    ).not.toThrow();
+  });
+
   it('normalizes a fixed time to an iso string so the result is json-safe', () => {
     const resolved = resolveOptions({ projects, fixedTime: new Date('2026-07-15T12:00:00.000Z') }, '/app');
 
