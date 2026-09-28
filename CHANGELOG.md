@@ -1,5 +1,9 @@
 # storybook-screenshot-tests CHANGELOG
 
+## 2.0.1
+
+Ensure `page.waitForFunction` respects timeout by passing options as third argument.
+
 ## 2.0.0
 
 ### Breaking changes

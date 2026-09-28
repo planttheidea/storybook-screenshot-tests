@@ -52,6 +52,7 @@ export async function waitForStoryRender(page: Page, url: string, timeout = 30_0
 
       return null;
     },
+    undefined,
     { timeout },
   );
 
