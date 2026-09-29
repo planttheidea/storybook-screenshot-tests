@@ -1,5 +1,11 @@
 # storybook-screenshot-tests CHANGELOG
 
+## 2.2.2
+
+The Storybook server's output is printed only while it starts, unless `debug` is on. Startup output explains a server
+that fails to come up; after that it is runtime logging and the noise of the server being stopped — Nx reporting its
+stopped task as one that "did not complete" on every run.
+
 ## 2.2.1
 
 Traces are recorded only when `debug` is on. Recording one costs every test, passing or not, and `retain-on-failure` by
