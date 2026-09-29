@@ -116,10 +116,11 @@ export function defineScreenshotConfig(options: ScreenshotConfigOptions): Playwr
     use: {
       // biome-ignore lint/style/useNamingConvention: `baseURL` is Playwright's property name.
       baseURL: resolved.storybookUrl,
-      // Retries are off, so `on-first-retry` would never record one. A trace
-      // carries the network, console, and DOM of a failure that only happens
-      // somewhere it cannot be watched, like CI.
-      trace: 'retain-on-failure',
+      // A trace carries the network, console, and DOM of a failure that only
+      // happens somewhere it cannot be watched, like CI — but recording one
+      // costs every test, passing or not, so only `debug` pays for it. Retries
+      // are off, so `on-first-retry` would never record one.
+      trace: resolved.debug ? 'retain-on-failure' : 'off',
       timezoneId: 'UTC',
     },
     expect: {

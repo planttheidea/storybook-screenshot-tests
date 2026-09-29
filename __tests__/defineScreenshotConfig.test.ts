@@ -171,8 +171,12 @@ describe('defineScreenshotConfig full-rerun paths', () => {
 });
 
 describe('defineScreenshotConfig debugging', () => {
-  it('keeps a trace of every failure, since retries are off', () => {
-    const config = createConfig();
+  it('records no traces by default, since recording slows every test', () => {
+    expect(createConfig().use?.trace).toBe('off');
+  });
+
+  it('keeps a trace of every failure when debugging, since retries are off', () => {
+    const config = createConfig({ debug: true });
 
     expect(config.retries).toBe(0);
     expect(config.use?.trace).toBe('retain-on-failure');

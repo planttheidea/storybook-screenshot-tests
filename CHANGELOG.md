@@ -2,6 +2,9 @@
 
 ## 2.2.1
 
+Traces are recorded only when `debug` is on. Recording one costs every test, passing or not, and `retain-on-failure` by
+default made whole runs noticeably slower. Set `debug: true` to get a trace of each failure.
+
 The Storybook server's output is printed. Playwright passes it to reporters rather than writing it itself, and the
 reporter dropped it, so `storybookServer.stdout: 'pipe'` and the default stderr piping showed nothing.
 

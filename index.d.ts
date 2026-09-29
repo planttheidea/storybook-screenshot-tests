@@ -142,8 +142,10 @@ interface ScreenshotConfigOptions {
     playwright?: PlaywrightTestConfig;
     /**
      * Forwards each story page's console, errors, failed requests, and Storybook
-     * channel events to stdout, pipes the Storybook server's output, and logs setup
-     * detail and per-test timings — for a story that renders locally and fails on CI.
+     * channel events to stdout, pipes the Storybook server's output, logs setup
+     * detail and per-test timings, and keeps a trace of every failed test — for a
+     * story that renders locally and fails on CI. Tracing slows every test, so
+     * leave it off once the failure is understood.
      * Read from the config file, so an environment variable can switch it:
      * `debug: process.env.SCREENSHOT_DEBUG === 'true'`.
      */

@@ -301,9 +301,10 @@ everything that could drift is pinned. Handled for you:
 - **The clock**, if you set `fixedTime`. Without it, date-relative content — chart axis labels, "Today" headers,
   relative-date fixtures — drifts between runs. Takes a `Date` or an ISO string.
 
-Retries are off, since a retried screenshot comparison tells you nothing a first one didn't. A trace is kept for every
-failure instead, in the generated `output` directory. On CI, workers are capped at one and Playwright's `github`
-reporter is added alongside this package's own.
+Retries are off, since a retried screenshot comparison tells you nothing a first one didn't. With `debug` on, a trace is
+kept for every failure instead, in the generated `output` directory — off otherwise, since recording one slows every
+test, passing or not. On CI, workers are capped at one and Playwright's `github` reporter is added alongside this
+package's own.
 
 Anything else is yours to override through `playwright`, which is merged over the generated config last:
 
