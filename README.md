@@ -375,6 +375,8 @@ Returns the Playwright config. `projects` is the only required option.
 | `tags`             | see [Tags](#tags)                               | Story selection and grouping                          |
 | `affected`         | `{}`                                            | See [Affected stories](#affected-stories-only)        |
 | `playwright`       | `{}`                                            | Merged over the generated config, last                |
+| `debug`            | `false`                                         | Logs page, network, and channel events per story      |
+| `warmUpTimeout`    | `60_000`                                        | Milliseconds global setup waits for the first story   |
 
 ### The rest
 
@@ -411,6 +413,12 @@ for a listener on `storybookUrl` before the run, and if the server is launched t
 
 **A story's baselines never go stale.** Look for a build-output warning in global setup. A workspace package resolved
 through `dist` is invisible to affected-story detection, so the stories depending on it never re-run under a base ref.
+
+**`Story did not render within …ms`.** The parenthetical says how far it got. `the preview never started rendering`
+means the story's module never loaded — on a Vite dev server, often a dependency re-optimization answering in-flight
+imports with `504 Outdated Optimize Dep`, which only a cold cache (so, usually CI) triggers. A `last render phase` means
+the story loaded and stalled inside rendering. Set `debug: true` to see the page's console, failed requests, and every
+Storybook channel event, and `storybookServer: { stdout: 'pipe' }` to see the server's own account of it.
 
 **`STORYBOOK_SCREENSHOTS_DIR is not set.`** Something ran a screenshot test outside a config built by
 `defineScreenshotConfig` — that variable is how the generated directory reaches global setup and the workers.

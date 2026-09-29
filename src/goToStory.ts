@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import type { WaitForStoryRenderConfig } from './waitForStoryRender.js';
 import { waitForStoryRender } from './waitForStoryRender.js';
 
 /** Serializes Storybook globals into the `globals` query parameter, e.g. `theme:dark;locale:en`. */
@@ -9,16 +10,31 @@ function getGlobalsParameter(globals: Record<string, string>): string {
 }
 
 /**
+ * Below Playwright's 30-second default test timeout, so a story that never
+ * renders fails with the render phase it reached rather than the generic
+ * test timeout.
+ */
+const RENDER_TIMEOUT = 20_000;
+
+/**
  * Navigates to a story and waits for it to render and for its assets to paint.
  *
  * Globals travel in the URL because a preview decorator that writes an attribute
  * from a global cannot be driven by Playwright's `colorScheme` alone.
  */
-export async function goToStory(page: Page, storyId: string, globals: Record<string, string>): Promise<void> {
+export async function goToStory(
+  page: Page,
+  storyId: string,
+  globals: Record<string, string>,
+  config: WaitForStoryRenderConfig = {},
+): Promise<void> {
   const globalsParameter = getGlobalsParameter(globals);
   const suffix = globalsParameter ? `&globals=${globalsParameter}` : '';
 
-  await waitForStoryRender(page, `/iframe.html?id=${storyId}&viewMode=story${suffix}`);
+  await waitForStoryRender(page, `/iframe.html?id=${storyId}&viewMode=story${suffix}`, {
+    timeout: RENDER_TIMEOUT,
+    ...config,
+  });
   await waitForResources(page);
 }
 

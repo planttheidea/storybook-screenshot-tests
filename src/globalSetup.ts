@@ -59,7 +59,10 @@ export async function globalSetup(browserType: BrowserType): Promise<void> {
 
     if (firstStory) {
       await warmUpServer(browserType, 'Storybook', (page) =>
-        waitForStoryRender(page, `${options.storybookUrl}/iframe.html?id=${firstStory.id}&viewMode=story`, 60_000),
+        waitForStoryRender(page, `${options.storybookUrl}/iframe.html?id=${firstStory.id}&viewMode=story`, {
+          debug: options.debug,
+          timeout: options.warmUpTimeout,
+        }),
       );
     }
   } catch (error) {
