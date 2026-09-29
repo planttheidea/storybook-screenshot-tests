@@ -267,6 +267,15 @@ declare class ScreenshotReporter implements Reporter {
      */
     onBegin(_config: FullConfig, suite: Suite): void;
     onTestEnd(test: TestCase, result: TestResult): void;
+    /**
+     * Output that belongs to no test — chiefly the Storybook server's, which
+     * Playwright hands to reporters, prefixed `[WebServer]`, rather than writing
+     * it itself. A reporter without these hooks drops it silently, whatever
+     * `storybookServer.stdout` says. A test's own output is left for its failure
+     * block, so it is not printed twice.
+     */
+    onStdOut(chunk: string | Buffer, test?: TestCase): void;
+    onStdErr(chunk: string | Buffer, test?: TestCase): void;
     /** Errors that belong to the run rather than to a test — a config or load failure. */
     onError(error: TestError): void;
     onEnd(result: FullResult): void;

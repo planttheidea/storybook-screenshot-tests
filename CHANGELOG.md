@@ -2,6 +2,9 @@
 
 ## 2.2.1
 
+The Storybook server's output is printed. Playwright passes it to reporters rather than writing it itself, and the
+reporter dropped it, so `storybookServer.stdout: 'pipe'` and the default stderr piping showed nothing.
+
 All `debug` output — page console, page errors, failed requests, navigations, and per-test timings, not just global
 setup — goes through one logger, prefixed `[screenshots]`, so it can be told apart from the reporter and filtered as
 one.
