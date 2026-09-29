@@ -1,5 +1,18 @@
 # storybook-screenshot-tests CHANGELOG
 
+## 2.1.0
+
+### Enhancements
+
+- `debug` option: forwards each story page's console, page errors, failed and error responses, navigations, and every
+  Storybook channel event to stdout, in both the warm-up and the tests.
+- `warmUpTimeout` option: how long global setup waits for the first story to render (default 60 seconds).
+- A render timeout names how far the story got — its last render phase, or that the preview never started rendering.
+- Each test waits 20 seconds for its story to render, below Playwright's 30-second test timeout, so the render-phase
+  error surfaces instead of the generic test timeout.
+- Storybook's `configError`, `storyMissing`, and `unhandledErrorsWhilePlaying` events, and a `storyFinished` without
+  success, now fail the story immediately instead of waiting out the timeout.
+
 ## 2.0.1
 
 Ensure `page.waitForFunction` respects timeout by passing options as third argument.

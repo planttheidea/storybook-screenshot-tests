@@ -137,6 +137,19 @@ export interface ScreenshotConfigOptions {
   affected?: AffectedOptions;
   /** Merged into Playwright's `defineConfig` after the generated defaults. */
   playwright?: PlaywrightTestConfig;
+  /**
+   * Forwards each story page's console, errors, failed requests, and Storybook
+   * channel events to stdout — for a story that renders locally and hangs on CI.
+   * Read from the config file, so an environment variable can switch it:
+   * `debug: process.env.SCREENSHOT_DEBUG === 'true'`.
+   */
+  debug?: boolean;
+  /**
+   * How long global setup waits for the first story to render, in
+   * milliseconds. That render pays for the Storybook server's cold start.
+   * Defaults to 60 seconds.
+   */
+  warmUpTimeout?: number;
 }
 
 /** Fully defaulted options, serialized to disk so every process reads the same values. */
@@ -151,6 +164,8 @@ export interface ResolvedOptions {
   projects: ScreenshotProjectOptions[];
   tags: TagOptions;
   affected: AffectedOptions;
+  debug: boolean;
+  warmUpTimeout: number;
 }
 
 const DEFAULT_TAGS: TagOptions = {
@@ -200,5 +215,7 @@ export function resolveOptions(
     projects: options.projects,
     tags,
     affected: { ...options.affected, fullRerunPaths },
+    debug: options.debug ?? false,
+    warmUpTimeout: options.warmUpTimeout ?? 60_000,
   };
 }

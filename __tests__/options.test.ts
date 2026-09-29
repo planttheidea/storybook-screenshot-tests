@@ -40,6 +40,20 @@ describe('resolveOptions', () => {
     expect(tags.failing).toBe('screenshot:failing');
   });
 
+  it('defaults debug off and the warm-up timeout to a minute', () => {
+    const resolved = resolveOptions({ projects }, '/app');
+
+    expect(resolved.debug).toBe(false);
+    expect(resolved.warmUpTimeout).toBe(60_000);
+  });
+
+  it('carries explicit debug and warm-up timeout values through', () => {
+    const resolved = resolveOptions({ projects, debug: true, warmUpTimeout: 90_000 }, '/app');
+
+    expect(resolved.debug).toBe(true);
+    expect(resolved.warmUpTimeout).toBe(90_000);
+  });
+
   it('rejects a project whose targeting tag would be a reserved tag', () => {
     expect(() => resolveOptions({ projects: [{ name: 'failing' }] }, '/app')).toThrow(/Project "failing"/);
     expect(() => resolveOptions({ projects: [{ name: 'disabled' }] }, '/app')).toThrow(/Project "disabled"/);

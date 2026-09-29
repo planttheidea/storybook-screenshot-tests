@@ -66,7 +66,7 @@ export function registerScreenshotTests({ test: baseTest, expect }: RegisterScre
             test(name, { tag }, async ({ page, storybookGlobals }, testInfo) => {
               test.fixme(story.failing, `Known failure — tagged ${options.tags.failing}`);
 
-              await goToStory(page, story.id, storybookGlobals);
+              await goToStory(page, story.id, storybookGlobals, { debug: options.debug });
               await expect(page).toHaveScreenshot(
                 deriveBaselineSegments(story.importPath, story.key, testInfo.project.name),
               );
