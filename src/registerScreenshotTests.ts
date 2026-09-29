@@ -14,8 +14,11 @@ export interface RegisterScreenshotTestsInput {
   expect: BaseExpect;
 }
 
-/** Groups stories by domain, then by component, preserving discovery order. */
-function getGroupedStories(stories: StoryRecord[]): Map<string, Map<string, StoryRecord[]>> {
+/**
+ * Groups stories by domain, then by component, preserving discovery order.
+ * @internal Exported for tests.
+ */
+export function getGroupedStories(stories: StoryRecord[]): Map<string, Map<string, StoryRecord[]>> {
   const byDomain = new Map<string, Map<string, StoryRecord[]>>();
 
   for (const story of stories) {

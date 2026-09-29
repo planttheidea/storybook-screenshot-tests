@@ -284,3 +284,38 @@ describe('deriveManifest project targeting', () => {
     expect(manifest.totalCount).toBe(7);
   });
 });
+
+describe('deriveManifest baseline collisions', () => {
+  it('throws when two stories in one file would share a baseline', () => {
+    const index = createIndex([
+      { id: 'foo--foo-bar', title: 'Foo', name: 'Foo Bar', tags: ['screenshot'] },
+      { id: 'foo--foobar', title: 'Foo', name: 'FooBar', tags: ['screenshot'] },
+    ]);
+
+    expect(() => deriveManifest(index, tags, projects)).toThrow(/"Foo\/Foo Bar" and "Foo\/FooBar"/);
+  });
+
+  it('allows the same name in different files', () => {
+    const index = createIndex([
+      { id: 'foo--primary', title: 'Foo', name: 'Primary', tags: ['screenshot'] },
+      {
+        id: 'foo-other--primary',
+        title: 'Foo',
+        name: 'Primary',
+        tags: ['screenshot'],
+        importPath: './src/Other/Other.stories.tsx',
+      },
+    ]);
+
+    expect(deriveManifest(index, tags, projects).stories).toHaveLength(2);
+  });
+
+  it('ignores untagged stories when checking for collisions', () => {
+    const index = createIndex([
+      { id: 'foo--foo-bar', title: 'Foo', name: 'Foo Bar', tags: ['screenshot'] },
+      { id: 'foo--foobar', title: 'Foo', name: 'FooBar', tags: [] },
+    ]);
+
+    expect(deriveManifest(index, tags, projects).stories).toHaveLength(1);
+  });
+});

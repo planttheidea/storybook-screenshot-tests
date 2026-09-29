@@ -24,29 +24,40 @@ const incompatibleConfigFileName = '48-guessfamily.conf';
  * setup covers the whole run.
  *
  * No-op on hosts that do not ship that file, and harmless once Playwright's
- * bundled fontconfig understands the newer syntax.
+ * bundled fontconfig understands the newer syntax. Returns the override's path
+ * when one was applied, for debug output.
  */
-export async function setFontConfigOverride(): Promise<void> {
+export async function setFontConfigOverride(): Promise<string | undefined> {
   const fontConfigFile = await createFilteredFontConfigFile();
 
   if (fontConfigFile !== undefined) {
     process.env.FONTCONFIG_FILE = fontConfigFile;
   }
+
+  return fontConfigFile;
 }
 
-async function createFilteredFontConfigFile(): Promise<string | undefined> {
-  if (!existsSync(join(systemFontConfigDirectory, incompatibleConfigFileName))) {
+/**
+ * Builds the filtered configuration tree, returning its `fonts.conf`, or
+ * `undefined` when the host ships nothing that needs filtering.
+ * @internal Exported for tests, which point it at a fixture directory.
+ */
+export async function createFilteredFontConfigFile(
+  systemDirectory = systemFontConfigDirectory,
+  temporaryDirectory = tmpdir(),
+): Promise<string | undefined> {
+  if (!existsSync(join(systemDirectory, incompatibleConfigFileName))) {
     return;
   }
 
-  const configFileNames = (await readdir(systemFontConfigDirectory))
+  const configFileNames = (await readdir(systemDirectory))
     .filter((fileName) => fileName.endsWith('.conf') && fileName !== incompatibleConfigFileName)
     .sort();
 
   // Content-addressed directory: a changed system config set produces a new
   // tree instead of mutating one another process may be reading.
   const contentHash = createHash('sha256').update(configFileNames.join('\n')).digest('hex').slice(0, 12);
-  const rootDirectory = join(tmpdir(), `storybook-screenshots-fontconfig-${contentHash}`);
+  const rootDirectory = join(temporaryDirectory, `storybook-screenshots-fontconfig-${contentHash}`);
   const includeDirectory = join(rootDirectory, 'conf.d');
   const configFilePath = join(rootDirectory, 'fonts.conf');
 
@@ -59,7 +70,7 @@ async function createFilteredFontConfigFile(): Promise<string | undefined> {
 
   for (const fileName of configFileNames) {
     try {
-      await symlink(join(systemFontConfigDirectory, fileName), join(includeDirectory, fileName));
+      await symlink(join(systemDirectory, fileName), join(includeDirectory, fileName));
     } catch (error) {
       // Concurrent runs may build the same tree; the content is identical, so
       // losing the race is harmless.

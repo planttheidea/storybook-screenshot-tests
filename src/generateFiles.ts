@@ -57,7 +57,8 @@ export function setGeneratedFiles(directory: string, options: ResolvedOptions): 
   setFileWhenChanged(resolve(directory, 'options.json'), `${JSON.stringify(options, null, 2)}\n`);
 }
 
-function setFileWhenChanged(filePath: string, content: string): void {
+/** @internal Exported for tests. */
+export function setFileWhenChanged(filePath: string, content: string): void {
   try {
     if (readFileSync(filePath, 'utf-8') === content) {
       return;

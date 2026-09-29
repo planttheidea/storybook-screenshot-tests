@@ -23,53 +23,82 @@ import { warmUpServer } from './warmUpServer.js';
  * will use, rather than whichever Playwright installation this package resolves to.
  */
 export async function globalSetup(browserType: BrowserType): Promise<void> {
-  try {
-    await setFontConfigOverride();
+  // Thrown rather than exiting, so Playwright reports the error and still shuts
+  // down the Storybook server it started — an exit here would leave it running.
+  const fontConfigFile = await setFontConfigOverride();
 
-    const options = getResolvedOptions();
-    const projectNames = options.projects.map((project) => project.name);
+  const options = getResolvedOptions();
+  const logDebug = createDebugLogger(options.debug);
 
-    const index = await getStoryIndex(options.storybookUrl);
-    const everyStory = deriveManifest(index, options.tags, projectNames);
+  logDebug(`options ${JSON.stringify(options)}`);
+  logDebug(fontConfigFile ? `fontconfig override at ${fontConfigFile}` : 'fontconfig override not needed');
 
-    const { importPaths, buildOutputPackages } = await deriveAffected({
-      repositoryRoot: getRepositoryRoot(options.rootDir),
-      projectRoot: options.rootDir,
-      storyImportPaths: everyStory.allImportPaths,
-      options: options.affected,
-    });
+  const projectNames = options.projects.map((project) => project.name);
 
-    reportBuildOutputPackages(buildOutputPackages, options.rootDir);
+  const index = await getStoryIndex(options.storybookUrl);
+  const everyStory = deriveManifest(index, options.tags, projectNames);
 
-    const manifest = deriveManifest(index, options.tags, projectNames, importPaths);
+  const { importPaths, buildOutputPackages, reason } = await deriveAffected({
+    repositoryRoot: getRepositoryRoot(options.rootDir),
+    projectRoot: options.rootDir,
+    storyImportPaths: everyStory.allImportPaths,
+    options: options.affected,
+  });
 
-    setManifest(manifest);
-    cleanUpBaselines(options.rootDir, everyStory.stories);
+  logDebug(`affected: ${importPaths ? 'narrowed' : 'capturing every story'}, because ${reason}`);
 
-    // No count here: `--project`, `--grep`, and the rest are applied after
-    // global setup, so any number this could print may overstate the run. The
-    // reporter prints the real one once Playwright has filtered.
-    console.log(
-      manifest.capturedCount < manifest.totalCount
-        ? `Manifest written, narrowed to stories affected since ${options.affected.baseRef}.`
-        : 'Manifest written.',
-    );
+  reportBuildOutputPackages(buildOutputPackages, options.rootDir);
 
-    const firstStory = manifest.stories[0];
+  const manifest = deriveManifest(index, options.tags, projectNames, importPaths);
 
-    if (firstStory) {
-      await warmUpServer(browserType, 'Storybook', (page) =>
-        waitForStoryRender(page, `${options.storybookUrl}/iframe.html?id=${firstStory.id}&viewMode=story`, {
-          debug: options.debug,
-          timeout: options.warmUpTimeout,
-        }),
-      );
-    }
-  } catch (error) {
-    console.error(error);
+  setManifest(manifest);
+  cleanUpBaselines(options.rootDir, everyStory.stories);
 
-    process.exit(1);
+  // No count here: `--project`, `--grep`, and the rest are applied after
+  // global setup, so any number this could print may overstate the run. The
+  // reporter prints the real one once Playwright has filtered.
+  console.log(
+    manifest.capturedCount < manifest.totalCount
+      ? `Manifest written, narrowed to stories affected since ${options.affected.baseRef}.`
+      : 'Manifest written.',
+  );
+
+  const firstStory = manifest.stories[0];
+
+  if (!firstStory) {
+    return;
   }
+
+  logDebug(`warming up on ${firstStory.id}`);
+
+  const startedAt = performance.now();
+
+  try {
+    await warmUpServer(browserType, 'Storybook', (page) =>
+      waitForStoryRender(page, `${options.storybookUrl}/iframe.html?id=${firstStory.id}&viewMode=story`, {
+        debug: options.debug,
+        timeout: options.warmUpTimeout,
+      }),
+    );
+  } catch (error) {
+    throw new Error(
+      `Warming up Storybook on "${firstStory.key}" (${firstStory.id}) failed: `
+        + `${error instanceof Error ? error.message : String(error)}\n`
+        + 'This is the first story the run captures. Set `debug: true` to see its page and channel events.',
+      { cause: error },
+    );
+  }
+
+  logDebug(`warm-up took ${Math.round(performance.now() - startedAt)}ms`);
+}
+
+/** Logs to stdout only when `debug` is set, prefixed so it stands apart from the reporter. */
+function createDebugLogger(enabled: boolean): (message: string) => void {
+  return (message) => {
+    if (enabled) {
+      console.log(color.gray(`[screenshots] ${message}`));
+    }
+  };
 }
 
 /**

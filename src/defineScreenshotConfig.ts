@@ -95,6 +95,8 @@ export function defineScreenshotConfig(options: ScreenshotConfigOptions): Playwr
         // Without it a Vite server can outlive the run and answer for the next
         // one, which reads as a mysteriously stale set of screenshots.
         gracefulShutdown: { signal: 'SIGTERM' as const, timeout: 5_000 },
+        // Debugging a render usually means debugging the server behind it too.
+        ...(resolved.debug ? { stdout: 'pipe' as const } : {}),
         ...resolved.storybookServer,
         // After the spread, so the Nx defaults are not dropped along with it.
         ...(Object.keys(serverEnvironment).length > 0 ? { env: serverEnvironment } : {}),
@@ -114,7 +116,10 @@ export function defineScreenshotConfig(options: ScreenshotConfigOptions): Playwr
     use: {
       // biome-ignore lint/style/useNamingConvention: `baseURL` is Playwright's property name.
       baseURL: resolved.storybookUrl,
-      trace: 'on-first-retry',
+      // Retries are off, so `on-first-retry` would never record one. A trace
+      // carries the network, console, and DOM of a failure that only happens
+      // somewhere it cannot be watched, like CI.
+      trace: 'retain-on-failure',
       timezoneId: 'UTC',
     },
     expect: {

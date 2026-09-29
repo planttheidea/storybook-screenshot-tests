@@ -1,5 +1,32 @@
 # storybook-screenshot-tests CHANGELOG
 
+## 2.2.0
+
+### Enhancements
+
+- A failing story reports Storybook's own error message and stack, prefixed with the event that carried it. Payloads
+  previously printed as `[object Object]`, or as a bare story id for `storyMissing`, which now explains that the story's
+  file may have failed to import.
+- Traces are kept for every failed test (`trace: 'retain-on-failure'`). The previous `on-first-retry` never recorded
+  one, because retries are off.
+- `debug` also pipes the Storybook server's output (unless `storybookServer.stdout` is set), logs the resolved options,
+  the fontconfig override, why affected detection captured what it did, the warm-up story and its duration, and each
+  test's render and resource timings.
+- The reporter prints what each failing test wrote to stdout and stderr, which is where `debug` output from test workers
+  lands — it was previously dropped.
+- The reporter lists each failure's attachments — expected, actual, and diff images, and the trace — relative to the
+  working directory.
+- Clearer errors for an unreachable Storybook, a non-JSON index, a missing `options.json`, a base ref missing from
+  history (as in a shallow CI clone), a dependency-cruiser failure, a failed warm-up, and resources that never finish
+  loading (now listed by URL).
+
+### Bug fixes
+
+- Global setup throws instead of calling `process.exit(1)`, so Playwright reports the error and shuts down the Storybook
+  server it started.
+- Two stories in one file whose names differ only by spaces (`Foo Bar` and `FooBar`) shared a baseline, one silently
+  overwriting the other. That now throws, naming both.
+
 ## 2.1.0
 
 ### Enhancements

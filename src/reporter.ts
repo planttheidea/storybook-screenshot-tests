@@ -1,3 +1,4 @@
+import { relative } from 'node:path';
 import { stripVTControlCharacters } from 'node:util';
 import type {
   FullConfig,
@@ -51,6 +52,32 @@ function getIndented(text: string, prefix = '    '): string {
 interface Failure {
   title: string;
   errors: TestError[];
+  /** Files written for the failure — the expected, actual, and diff images, and the trace. */
+  attachmentPaths: string[];
+  /** What the test wrote to stdout and stderr, such as `debug` output. */
+  output: string;
+}
+
+/**
+ * Joins what a test wrote to stdout and stderr. Workers' console output reaches
+ * the reporter here rather than the terminal, so a reporter that drops it hides
+ * everything `debug` logged for the test.
+ * @internal Exported for tests.
+ */
+export function getTestOutput(result: Pick<TestResult, 'stdout' | 'stderr'>): string {
+  return [...result.stdout, ...result.stderr]
+    .map((chunk) => (typeof chunk === 'string' ? chunk : chunk.toString('utf-8')))
+    .join('')
+    .trimEnd();
+}
+
+/**
+ * Paths of a result's file attachments, relative to the working directory so
+ * they can be found in a downloaded CI artifact.
+ * @internal Exported for tests.
+ */
+export function getAttachmentPaths(attachments: TestResult['attachments'], cwd = process.cwd()): string[] {
+  return attachments.flatMap((attachment) => (attachment.path ? [relative(cwd, attachment.path)] : []));
 }
 
 /**
@@ -93,6 +120,8 @@ export class ScreenshotReporter implements Reporter {
       this.failures.push({
         title: `${projectName} › ${titlePath.join(' › ')}`,
         errors: result.errors,
+        attachmentPaths: getAttachmentPaths(result.attachments),
+        output: getTestOutput(result),
       });
     } else {
       this.skippedCount++;
@@ -109,11 +138,19 @@ export class ScreenshotReporter implements Reporter {
   }
 
   onEnd(result: FullResult): void {
-    for (const { title, errors } of this.failures) {
+    for (const { title, errors, attachmentPaths, output } of this.failures) {
       console.log(`\n${color.red('✘')} ${color.bold(title)}`);
+
+      if (output) {
+        console.log(getIndented(color.gray(output)));
+      }
 
       for (const error of errors) {
         console.log(getIndented(getErrorText(error)));
+      }
+
+      for (const attachmentPath of attachmentPaths) {
+        console.log(getIndented(color.gray(attachmentPath)));
       }
     }
 

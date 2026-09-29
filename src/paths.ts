@@ -70,7 +70,21 @@ export function getGeneratedDirectory(): string {
 
 /** Reads the options written at config load. Available in every process. */
 export function getResolvedOptions(): ResolvedOptions {
-  return JSON.parse(readFileSync(resolve(getGeneratedDirectory(), 'options.json'), 'utf-8')) as ResolvedOptions;
+  const optionsFile = resolve(getGeneratedDirectory(), 'options.json');
+
+  let content: string;
+
+  try {
+    content = readFileSync(optionsFile, 'utf-8');
+  } catch (error) {
+    throw new Error(
+      `${optionsFile} could not be read. It is written when the Playwright config calls defineScreenshotConfig(), `
+        + 'so check that the run uses that config.',
+      { cause: error },
+    );
+  }
+
+  return JSON.parse(content) as ResolvedOptions;
 }
 
 /**

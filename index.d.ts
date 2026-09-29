@@ -142,7 +142,8 @@ interface ScreenshotConfigOptions {
     playwright?: PlaywrightTestConfig;
     /**
      * Forwards each story page's console, errors, failed requests, and Storybook
-     * channel events to stdout — for a story that renders locally and hangs on CI.
+     * channel events to stdout, pipes the Storybook server's output, and logs setup
+     * detail and per-test timings — for a story that renders locally and fails on CI.
      * Read from the config file, so an environment variable can switch it:
      * `debug: process.env.SCREENSHOT_DEBUG === 'true'`.
      */
@@ -185,6 +186,27 @@ declare function defineScreenshotConfig(options: ScreenshotConfigOptions): Playw
  * will use, rather than whichever Playwright installation this package resolves to.
  */
 declare function globalSetup(browserType: BrowserType): Promise<void>;
+
+/** One story, reduced to what the test tree and the baseline path need. */
+interface StoryRecord {
+    /** `"Components/AccountSignIn/ValidationError"` — title path plus space-stripped story name. */
+    key: string;
+    id: string;
+    importPath: string;
+    domain: string;
+    failing: boolean;
+    /** Names of the projects this story is captured in — every project, unless its tags name specific ones. */
+    projects: string[];
+}
+interface Manifest {
+    stories: StoryRecord[];
+    /** Story import paths present in Storybook, before any affected filtering. */
+    allImportPaths: string[];
+    /** Screenshots this run captures — one per story per project it is captured in. */
+    capturedCount: number;
+    /** Screenshots across every tagged story, before any affected filtering. */
+    totalCount: number;
+}
 
 interface ScreenshotOptions {
     /**
@@ -248,27 +270,6 @@ declare class ScreenshotReporter implements Reporter {
     /** Errors that belong to the run rather than to a test — a config or load failure. */
     onError(error: TestError): void;
     onEnd(result: FullResult): void;
-}
-
-/** One story, reduced to what the test tree and the baseline path need. */
-interface StoryRecord {
-    /** `"Components/AccountSignIn/ValidationError"` — title path plus space-stripped story name. */
-    key: string;
-    id: string;
-    importPath: string;
-    domain: string;
-    failing: boolean;
-    /** Names of the projects this story is captured in — every project, unless its tags name specific ones. */
-    projects: string[];
-}
-interface Manifest {
-    stories: StoryRecord[];
-    /** Story import paths present in Storybook, before any affected filtering. */
-    allImportPaths: string[];
-    /** Screenshots this run captures — one per story per project it is captured in. */
-    capturedCount: number;
-    /** Screenshots across every tagged story, before any affected filtering. */
-    totalCount: number;
 }
 
 export { ScreenshotReporter, createScreenshotTest, defineScreenshotConfig, globalSetup, registerScreenshotTests };

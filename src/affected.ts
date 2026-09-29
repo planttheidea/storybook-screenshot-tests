@@ -32,6 +32,8 @@ export interface AffectedResult {
   importPaths: Set<string> | undefined;
   /** Workspace packages the graph reached through a build output rather than source. */
   buildOutputPackages: string[];
+  /** Why the run captures what it does, e.g. which changed path forced every story. */
+  reason: string;
 }
 
 /**
@@ -55,38 +57,34 @@ export async function deriveAffected({
   const baseRef = options.baseRef;
 
   if (!baseRef) {
-    return { importPaths: undefined, buildOutputPackages: [] };
+    return { importPaths: undefined, buildOutputPackages: [], reason: 'no base ref is set' };
   }
 
-  const changedOutput = execFileSync('git', ['diff', '--name-only', `${baseRef}...HEAD`], {
-    cwd: repositoryRoot,
-    encoding: 'utf-8',
-  }).trim();
+  const changedOutput = getGitDiff(['--name-only', `${baseRef}...HEAD`], repositoryRoot, baseRef).trim();
 
   if (!changedOutput) {
-    return { importPaths: undefined, buildOutputPackages: [] };
+    return { importPaths: undefined, buildOutputPackages: [], reason: `nothing changed since ${baseRef}` };
   }
 
   const changedFiles = changedOutput.split('\n').filter(Boolean);
 
   // Checked before the cruise, which is the expensive half: if everything is
   // being captured anyway, there is no graph worth building.
-  if (hasFullRerunPathChange(changedFiles, options.fullRerunPaths)) {
-    return { importPaths: undefined, buildOutputPackages: [] };
+  const fullRerunFile = getFullRerunPathChange(changedFiles, options.fullRerunPaths);
+
+  if (fullRerunFile) {
+    return {
+      importPaths: undefined,
+      buildOutputPackages: [],
+      reason: `${fullRerunFile} changed, and it is under a full-rerun path`,
+    };
   }
 
   const entryPoints = storyImportPaths.map((importPath) =>
     relative(repositoryRoot, resolve(projectRoot, importPath.replace(LEADING_DOT_SLASH, ''))),
   );
 
-  const { cruise } = await import('dependency-cruiser');
-  const result = await cruise(entryPoints, {
-    baseDir: repositoryRoot,
-    outputType: 'json',
-    ...options.cruiseOptions,
-  });
-
-  const { modules } = JSON.parse(result.output as string) as { modules: CruiseModule[] };
+  const modules = await getCruisedModules(entryPoints, repositoryRoot, options.cruiseOptions);
 
   const reverseGraph: Record<string, string[]> = {};
   const externalPackages = new Set<string>();
@@ -110,8 +108,14 @@ export async function deriveAffected({
     }
   }
 
-  if (hasVisualDependencyChange(changedFiles, externalPackages, repositoryRoot, baseRef, options)) {
-    return { importPaths: undefined, buildOutputPackages: [...buildOutputPackages] };
+  const changedPackage = getVisualDependencyChange(changedFiles, externalPackages, repositoryRoot, baseRef, options);
+
+  if (changedPackage) {
+    return {
+      importPaths: undefined,
+      buildOutputPackages: [...buildOutputPackages],
+      reason: `the lockfile changed ${changedPackage}, which the stories import`,
+    };
   }
 
   const storyFiles = new Set(entryPoints);
@@ -122,7 +126,60 @@ export async function deriveAffected({
   return {
     importPaths: new Set(importPaths),
     buildOutputPackages: [...buildOutputPackages],
+    reason: `${changedFiles.length} changed file(s) since ${baseRef} reach ${importPaths.length} story file(s)`,
   };
+}
+
+/**
+ * Runs `git diff` against the base ref, turning git's failure into one that says
+ * what to fix. A shallow clone — the default on most CI checkouts — has no
+ * merge base to diff against, and git's own message does not say so.
+ */
+function getGitDiff(args: string[], repositoryRoot: string, baseRef: string): string {
+  try {
+    return execFileSync('git', ['diff', ...args], {
+      cwd: repositoryRoot,
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+  } catch (error) {
+    const stderr = (error as { stderr?: Buffer | string }).stderr?.toString().trim() ?? '';
+
+    throw new Error(
+      [
+        `Could not diff against the base ref "${baseRef}" to find affected stories.`,
+        ...(stderr ? [`git: ${stderr}`] : []),
+        'The ref and its merge base with HEAD must be in local history. On CI, fetch full history',
+        '(for actions/checkout, `fetch-depth: 0`), or unset `affected.baseRef` to capture every story.',
+      ].join('\n'),
+      { cause: error },
+    );
+  }
+}
+
+/** Cruises the story files, naming the step when dependency-cruiser fails. */
+async function getCruisedModules(
+  entryPoints: string[],
+  repositoryRoot: string,
+  cruiseOptions: Record<string, unknown> | undefined,
+): Promise<CruiseModule[]> {
+  try {
+    const { cruise } = await import('dependency-cruiser');
+    const result = await cruise(entryPoints, {
+      baseDir: repositoryRoot,
+      outputType: 'json',
+      ...cruiseOptions,
+    });
+
+    return (JSON.parse(result.output as string) as { modules: CruiseModule[] }).modules;
+  } catch (error) {
+    throw new Error(
+      `Affected-story detection failed while dependency-cruiser walked the stories' imports: ${
+        error instanceof Error ? error.message : String(error)
+      }\nCheck \`affected.cruiseOptions\`, or unset \`affected.baseRef\` to capture every story.`,
+      { cause: error },
+    );
+  }
 }
 
 /**
@@ -173,7 +230,15 @@ export function findAffectedStories(
  * @internal Exported for tests.
  */
 export function hasFullRerunPathChange(changedFiles: string[], fullRerunPaths: string[] = []): boolean {
-  return changedFiles.some((file) =>
+  return getFullRerunPathChange(changedFiles, fullRerunPaths) !== undefined;
+}
+
+/**
+ * The first changed file under a full-rerun path, if any.
+ * @internal Exported for tests.
+ */
+export function getFullRerunPathChange(changedFiles: string[], fullRerunPaths: string[] = []): string | undefined {
+  return changedFiles.find((file) =>
     fullRerunPaths.some((fullRerunPath) => {
       const normalized = fullRerunPath.replace(TRAILING_SLASH, '');
 
@@ -182,8 +247,11 @@ export function hasFullRerunPathChange(changedFiles: string[], fullRerunPaths: s
   );
 }
 
-/** Extracts `name` or `@scope/name` from a `node_modules/...` path. */
-function getPackageName(resolvedPath: string): string {
+/**
+ * Extracts `name` or `@scope/name` from a `node_modules/...` path.
+ * @internal Exported for tests.
+ */
+export function getPackageName(resolvedPath: string): string {
   const parts = resolvedPath.slice('node_modules/'.length).split('/');
   const first = parts[0] ?? '';
 
@@ -195,8 +263,9 @@ function getPackageName(resolvedPath: string): string {
  * That happens when the package's export map has no condition pointing at its
  * source, and it means edits to that package's source are invisible here — the
  * story silently will not re-run.
+ * @internal Exported for tests.
  */
-function registerBuildOutput(source: string, repositoryRoot: string, buildOutputPackages: Set<string>): void {
+export function registerBuildOutput(source: string, repositoryRoot: string, buildOutputPackages: Set<string>): void {
   const match = /^(.*)\/(?:dist|build|lib|out-tsc)\//.exec(source);
 
   if (match?.[1]) {
@@ -205,31 +274,47 @@ function registerBuildOutput(source: string, repositoryRoot: string, buildOutput
 }
 
 /**
- * Returns true when the lockfile changed for a package the stories actually
- * reach — a version bump that could move a pixel, so every story is captured.
+ * Returns the first package the stories reach whose lockfile entry changed — a
+ * version bump that could move a pixel, so every story is captured.
  */
-function hasVisualDependencyChange(
+function getVisualDependencyChange(
   changedFiles: string[],
   externalPackages: Set<string>,
   repositoryRoot: string,
   baseRef: string,
   options: AffectedOptions,
-): boolean {
+): string | undefined {
   const lockfile = LOCKFILES.find(({ file }) =>
     options.lockfile ? file === options.lockfile : changedFiles.includes(file),
   );
 
   if (!lockfile || !changedFiles.includes(lockfile.file) || externalPackages.size === 0) {
-    return false;
+    return undefined;
   }
 
-  const lockDiff = execFileSync('git', ['diff', `${baseRef}...HEAD`, '--', lockfile.file], {
-    cwd: repositoryRoot,
-    encoding: 'utf-8',
-  });
+  const lockDiff = getGitDiff([`${baseRef}...HEAD`, '--', lockfile.file], repositoryRoot, baseRef);
+
+  return getChangedPackage(lockDiff, externalPackages, lockfile.file);
+}
+
+/**
+ * Finds the first of `packageNames` whose entry a lockfile diff adds or removes.
+ * @internal Exported for tests.
+ */
+export function getChangedPackage(
+  lockDiff: string,
+  packageNames: Iterable<string>,
+  lockfileName: string,
+): string | undefined {
+  const lockfile = LOCKFILES.find(({ file }) => file === lockfileName);
+
+  if (!lockfile) {
+    return undefined;
+  }
+
   const changedLines = lockDiff.split('\n').filter((line) => DIFF_LINE.test(line) && !DIFF_HEADER.test(line));
 
-  return [...externalPackages].some((packageName) =>
+  return [...packageNames].find((packageName) =>
     changedLines.some((line) => line.includes(lockfile.getMatcher(packageName))),
   );
 }
