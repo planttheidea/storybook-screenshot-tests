@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import { createDebugLogger } from './debugLogger.js';
 import type { WaitForStoryRenderConfig } from './waitForStoryRender.js';
 import { waitForStoryRender } from './waitForStoryRender.js';
 
@@ -45,12 +46,12 @@ export async function goToStory(
 
   await waitForResources(page);
 
-  if (config.debug) {
-    const renderDuration = Math.round(renderedAt - startedAt);
-    const resourcesDuration = Math.round(performance.now() - renderedAt);
+  const renderDuration = Math.round(renderedAt - startedAt);
+  const resourcesDuration = Math.round(performance.now() - renderedAt);
 
-    console.log(`[timing] ${storyId} rendered in ${renderDuration}ms, resources settled in ${resourcesDuration}ms`);
-  }
+  createDebugLogger(config.debug ?? false)(
+    `[timing] ${storyId} rendered in ${renderDuration}ms, resources settled in ${resourcesDuration}ms`,
+  );
 }
 
 /**

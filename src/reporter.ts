@@ -132,6 +132,25 @@ export class ScreenshotReporter implements Reporter {
     console.log(`${status} ${color.gray(`[${projectName}]`)} ${label} (${getFormattedDuration(result.duration)})`);
   }
 
+  /**
+   * Output that belongs to no test — chiefly the Storybook server's, which
+   * Playwright hands to reporters, prefixed `[WebServer]`, rather than writing
+   * it itself. A reporter without these hooks drops it silently, whatever
+   * `storybookServer.stdout` says. A test's own output is left for its failure
+   * block, so it is not printed twice.
+   */
+  onStdOut(chunk: string | Buffer, test?: TestCase): void {
+    if (!test) {
+      process.stdout.write(chunk);
+    }
+  }
+
+  onStdErr(chunk: string | Buffer, test?: TestCase): void {
+    if (!test) {
+      process.stderr.write(chunk);
+    }
+  }
+
   /** Errors that belong to the run rather than to a test — a config or load failure. */
   onError(error: TestError): void {
     this.runErrors.push(error);

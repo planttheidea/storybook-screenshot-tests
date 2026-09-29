@@ -185,3 +185,29 @@ describe('getTestOutput', () => {
     expect(getTestOutput({ stdout: [], stderr: [] })).toBe('');
   });
 });
+
+describe('ScreenshotReporter output outside tests', () => {
+  it('writes server output, which belongs to no test', () => {
+    const write = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+
+    new ScreenshotReporter().onStdOut('[WebServer] ready\n');
+
+    expect(write).toHaveBeenCalledWith('[WebServer] ready\n');
+  });
+
+  it('writes server errors to stderr', () => {
+    const write = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+
+    new ScreenshotReporter().onStdErr('[WebServer] failed\n');
+
+    expect(write).toHaveBeenCalledWith('[WebServer] failed\n');
+  });
+
+  it("leaves a test's own output for its failure block", () => {
+    const write = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+
+    new ScreenshotReporter().onStdOut('[channel] storyMissing\n', createTest('Primary'));
+
+    expect(write).not.toHaveBeenCalled();
+  });
+});
