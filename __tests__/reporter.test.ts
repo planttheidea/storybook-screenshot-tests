@@ -187,7 +187,7 @@ describe('getTestOutput', () => {
 });
 
 describe('ScreenshotReporter output outside tests', () => {
-  it('writes server output, which belongs to no test', () => {
+  it('writes server output while the server starts, before any test', () => {
     const write = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
 
     new ScreenshotReporter().onStdOut('[WebServer] ready\n');
@@ -195,7 +195,7 @@ describe('ScreenshotReporter output outside tests', () => {
     expect(write).toHaveBeenCalledWith('[WebServer] ready\n');
   });
 
-  it('writes server errors to stderr', () => {
+  it('writes server errors to stderr while the server starts', () => {
     const write = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
 
     new ScreenshotReporter().onStdErr('[WebServer] failed\n');
@@ -203,10 +203,33 @@ describe('ScreenshotReporter output outside tests', () => {
     expect(write).toHaveBeenCalledWith('[WebServer] failed\n');
   });
 
+  it('drops server output once tests begin, such as the noise of the server stopping', () => {
+    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    const reporter = new ScreenshotReporter();
+
+    begin(reporter, 1);
+    reporter.onStdOut('[WebServer] hmr update\n');
+    reporter.onStdErr('[WebServer]  NX   Running target storybook for project app did not complete\n');
+
+    expect(stdout).not.toHaveBeenCalled();
+    expect(stderr).not.toHaveBeenCalled();
+  });
+
+  it('keeps writing server output after tests begin when debugging', () => {
+    const write = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    const reporter = new ScreenshotReporter({ debug: true });
+
+    begin(reporter, 1);
+    reporter.onStdErr('[WebServer] vite:deps new dependencies found\n');
+
+    expect(write).toHaveBeenCalledWith('[WebServer] vite:deps new dependencies found\n');
+  });
+
   it("leaves a test's own output for its failure block", () => {
     const write = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
 
-    new ScreenshotReporter().onStdOut('[channel] storyMissing\n', createTest('Primary'));
+    new ScreenshotReporter({ debug: true }).onStdOut('[channel] storyMissing\n', createTest('Primary'));
 
     expect(write).not.toHaveBeenCalled();
   });

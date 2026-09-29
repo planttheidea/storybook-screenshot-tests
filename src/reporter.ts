@@ -80,6 +80,11 @@ export function getAttachmentPaths(attachments: TestResult['attachments'], cwd =
   return attachments.flatMap((attachment) => (attachment.path ? [relative(cwd, attachment.path)] : []));
 }
 
+export interface ScreenshotReporterOptions {
+  /** Prints the Storybook server's output for the whole run, not only while it starts. */
+  debug?: boolean;
+}
+
 /**
  * One line per screenshot, plus enough on failure to act without opening a trace.
  *
@@ -92,6 +97,13 @@ export class ScreenshotReporter implements Reporter {
   private runErrors: TestError[] = [];
   private passedCount = 0;
   private skippedCount = 0;
+  private testsStarted = false;
+  private readonly debug: boolean;
+
+  /** Options arrive from the reporter's entry in the Playwright config, `[path, options]`. */
+  constructor({ debug = false }: ScreenshotReporterOptions = {}) {
+    this.debug = debug;
+  }
 
   /**
    * Called once Playwright has applied every filter — `--project`, `--grep`,
@@ -99,6 +111,8 @@ export class ScreenshotReporter implements Reporter {
    * starts, so this count is the run as it will actually happen.
    */
   onBegin(_config: FullConfig, suite: Suite): void {
+    this.testsStarted = true;
+
     const count = suite.allTests().length;
 
     if (count > 0) {
@@ -138,17 +152,27 @@ export class ScreenshotReporter implements Reporter {
    * it itself. A reporter without these hooks drops it silently, whatever
    * `storybookServer.stdout` says. A test's own output is left for its failure
    * block, so it is not printed twice.
+   *
+   * Server output is printed while the server starts, where a failure explains
+   * the otherwise bare "Timed out waiting for webServer". Once tests begin it is
+   * printed only with `debug`: what follows is runtime logging, then the noise
+   * of the server being stopped — Nx, for one, reports a stopped task as one
+   * that "did not complete".
    */
   onStdOut(chunk: string | Buffer, test?: TestCase): void {
-    if (!test) {
+    if (this.isRunOutputShown(test)) {
       process.stdout.write(chunk);
     }
   }
 
   onStdErr(chunk: string | Buffer, test?: TestCase): void {
-    if (!test) {
+    if (this.isRunOutputShown(test)) {
       process.stderr.write(chunk);
     }
+  }
+
+  private isRunOutputShown(test: TestCase | undefined): boolean {
+    return !test && (!this.testsStarted || this.debug);
   }
 
   /** Errors that belong to the run rather than to a test — a config or load failure. */

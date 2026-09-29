@@ -107,9 +107,10 @@ export function defineScreenshotConfig(options: ScreenshotConfigOptions): Playwr
     testDir: generatedDirectory,
     testMatch: '**/*.screenshot.ts',
     globalSetup: resolve(generatedDirectory, 'global-setup.ts'),
-    reporter: isContinuousIntegration
-      ? [['github'], [resolve(generatedDirectory, 'reporter.ts')]]
-      : resolve(generatedDirectory, 'reporter.ts'),
+    reporter: [
+      ...(isContinuousIntegration ? [['github'] as [string]] : []),
+      [resolve(generatedDirectory, 'reporter.ts'), { debug: resolved.debug }],
+    ],
     retries: 0,
     workers: isContinuousIntegration ? 1 : undefined,
     outputDir: resolve(generatedDirectory, 'output'),

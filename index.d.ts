@@ -250,6 +250,10 @@ interface RegisterScreenshotTestsInput {
  */
 declare function registerScreenshotTests({ test: baseTest, expect }: RegisterScreenshotTestsInput): void;
 
+interface ScreenshotReporterOptions {
+    /** Prints the Storybook server's output for the whole run, not only while it starts. */
+    debug?: boolean;
+}
 /**
  * One line per screenshot, plus enough on failure to act without opening a trace.
  *
@@ -262,6 +266,10 @@ declare class ScreenshotReporter implements Reporter {
     private runErrors;
     private passedCount;
     private skippedCount;
+    private testsStarted;
+    private readonly debug;
+    /** Options arrive from the reporter's entry in the Playwright config, `[path, options]`. */
+    constructor({ debug }?: ScreenshotReporterOptions);
     /**
      * Called once Playwright has applied every filter — `--project`, `--grep`,
      * `--last-failed`, a test path, affected stories — and before the first test
@@ -275,13 +283,20 @@ declare class ScreenshotReporter implements Reporter {
      * it itself. A reporter without these hooks drops it silently, whatever
      * `storybookServer.stdout` says. A test's own output is left for its failure
      * block, so it is not printed twice.
+     *
+     * Server output is printed while the server starts, where a failure explains
+     * the otherwise bare "Timed out waiting for webServer". Once tests begin it is
+     * printed only with `debug`: what follows is runtime logging, then the noise
+     * of the server being stopped — Nx, for one, reports a stopped task as one
+     * that "did not complete".
      */
     onStdOut(chunk: string | Buffer, test?: TestCase): void;
     onStdErr(chunk: string | Buffer, test?: TestCase): void;
+    private isRunOutputShown;
     /** Errors that belong to the run rather than to a test — a config or load failure. */
     onError(error: TestError): void;
     onEnd(result: FullResult): void;
 }
 
 export { ScreenshotReporter, createScreenshotTest, defineScreenshotConfig, globalSetup, registerScreenshotTests };
-export type { AffectedOptions, BaseTest, Manifest, RegisterScreenshotTestsInput, ScreenshotConfigOptions, ScreenshotOptions, ScreenshotProjectOptions, ScreenshotTest, StoryRecord, StorybookServerOptions, TagOptions };
+export type { AffectedOptions, BaseTest, Manifest, RegisterScreenshotTestsInput, ScreenshotConfigOptions, ScreenshotOptions, ScreenshotProjectOptions, ScreenshotReporterOptions, ScreenshotTest, StoryRecord, StorybookServerOptions, TagOptions };

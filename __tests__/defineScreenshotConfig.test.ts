@@ -228,7 +228,14 @@ describe('defineScreenshotConfig environment', () => {
     const config = createConfig();
 
     expect(config.workers).toBeUndefined();
-    expect(typeof config.reporter).toBe('string');
+    expect(config.reporter).toHaveLength(1);
+    expect(Array.isArray(config.reporter) && config.reporter[0]?.[0]).toMatch(/reporter\.ts$/);
+  });
+
+  it('hands debug to its own reporter', () => {
+    const reporter = createConfig({ debug: true }).reporter;
+
+    expect(Array.isArray(reporter) && reporter.at(-1)?.[1]).toEqual({ debug: true });
   });
 
   it('lets playwright overrides win over the generated config', () => {
