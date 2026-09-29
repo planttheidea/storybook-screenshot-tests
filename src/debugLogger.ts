@@ -8,9 +8,13 @@ export type DebugLogger = (message: string) => void;
  * which prints it alongside that test's failure.
  */
 export function createDebugLogger(enabled: boolean): DebugLogger {
-  return (message) => {
-    if (enabled) {
-      console.log(color.gray(`[screenshots] ${message}`));
-    }
-  };
+  return enabled ? logDebug : ignoreDebug;
+}
+
+function logDebug(message: string): void {
+  console.log(color.gray(`[screenshots] ${message}`));
+}
+
+function ignoreDebug(): void {
+  // Debugging is off.
 }
