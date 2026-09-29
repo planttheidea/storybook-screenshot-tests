@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { findAffectedStories, hasFullRerunPathChange } from '../src/affected.js';
+import {
+  findAffectedStories,
+  getChangedPackage,
+  getFullRerunPathChange,
+  getPackageName,
+  hasFullRerunPathChange,
+  registerBuildOutput,
+} from '../src/affected.js';
 
 const storyFiles = new Set(['src/A/A.stories.tsx', 'src/B/B.stories.tsx']);
 
@@ -87,5 +94,83 @@ describe('hasFullRerunPathChange', () => {
 
   it('returns false when no paths are declared', () => {
     expect(hasFullRerunPathChange(['apps/web/.storybook/preview.ts'])).toBe(false);
+  });
+});
+
+describe('getFullRerunPathChange', () => {
+  it('returns the first changed file under a full-rerun path', () => {
+    expect(getFullRerunPathChange(['src/a.ts', 'src/styles/tokens.css'], ['src/styles'])).toBe('src/styles/tokens.css');
+  });
+
+  it('returns undefined when no changed file qualifies', () => {
+    expect(getFullRerunPathChange(['src/a.ts'], ['src/styles'])).toBeUndefined();
+  });
+});
+
+describe('getPackageName', () => {
+  it('reads an unscoped package name', () => {
+    expect(getPackageName('node_modules/react/index.js')).toBe('react');
+  });
+
+  it('reads a scoped package name', () => {
+    expect(getPackageName('node_modules/@tanstack/react-query/build/index.js')).toBe('@tanstack/react-query');
+  });
+});
+
+describe('registerBuildOutput', () => {
+  it('records a workspace package reached through its build output', () => {
+    const packages = new Set<string>();
+
+    registerBuildOutput('libraries/shared/dist/index.js', '/repo', packages);
+
+    expect([...packages]).toEqual(['/repo/libraries/shared']);
+  });
+
+  it('ignores a module reached through source', () => {
+    const packages = new Set<string>();
+
+    registerBuildOutput('libraries/shared/src/index.ts', '/repo', packages);
+
+    expect(packages.size).toBe(0);
+  });
+});
+
+describe('getChangedPackage', () => {
+  it('finds a changed package in a yarn lockfile diff', () => {
+    const diff = ['--- a/yarn.lock', '+++ b/yarn.lock', '-"react@npm:^18.2.0":', '+"react@npm:^18.3.0":'].join('\n');
+
+    expect(getChangedPackage(diff, ['lodash', 'react'], 'yarn.lock')).toBe('react');
+  });
+
+  it('finds a changed package in a pnpm lockfile diff', () => {
+    const diff = ['+  /react@18.3.0:', '-  /react@18.2.0:'].join('\n');
+
+    expect(getChangedPackage(diff, ['react'], 'pnpm-lock.yaml')).toBe('react');
+  });
+
+  it('finds a changed package in an npm lockfile diff', () => {
+    const diff = ['+    "node_modules/react": {'].join('\n');
+
+    expect(getChangedPackage(diff, ['react'], 'package-lock.json')).toBe('react');
+  });
+
+  it('does not match a package whose name merely starts the same', () => {
+    const diff = ['+"react-dom@npm:^18.3.0":'].join('\n');
+
+    expect(getChangedPackage(diff, ['react'], 'yarn.lock')).toBeUndefined();
+  });
+
+  it('ignores the diff header lines', () => {
+    const diff = ['--- a/node_modules/react"', '+++ b/node_modules/react"'].join('\n');
+
+    expect(getChangedPackage(diff, ['react'], 'package-lock.json')).toBeUndefined();
+  });
+
+  it('ignores context lines that did not change', () => {
+    expect(getChangedPackage(' "react@npm:^18.2.0":', ['react'], 'yarn.lock')).toBeUndefined();
+  });
+
+  it('returns undefined for an unknown lockfile', () => {
+    expect(getChangedPackage('+react', ['react'], 'bun.lockb')).toBeUndefined();
   });
 });

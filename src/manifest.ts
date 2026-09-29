@@ -42,15 +42,39 @@ export interface Manifest {
 
 const MANIFEST_FILE = 'manifest.json';
 
-/** Fetches Storybook's story index. Throws with the status rather than a bare parse error. */
+/**
+ * Fetches Storybook's story index. Throws naming the URL and the likely fix,
+ * rather than Node's bare `fetch failed` or a JSON parse error.
+ */
 export async function getStoryIndex(storybookUrl: string): Promise<StoryIndex> {
-  const response = await fetch(`${storybookUrl}/index.json`);
+  const indexUrl = `${storybookUrl}/index.json`;
 
-  if (!response.ok) {
-    throw new Error(`Failed to fetch Storybook index: ${response.status} ${response.statusText}`);
+  let response: Response;
+
+  try {
+    response = await fetch(indexUrl);
+  } catch (error) {
+    const cause = (error as { cause?: { code?: string } }).cause?.code;
+
+    throw new Error(
+      `Could not reach Storybook at ${storybookUrl}${cause ? ` (${cause})` : ''}. `
+        + 'Set `storybookCommand` so the run starts it, or start it before running, and check `storybookUrl`.',
+      { cause: error },
+    );
   }
 
-  return (await response.json()) as StoryIndex;
+  if (!response.ok) {
+    throw new Error(`Failed to fetch the Storybook index from ${indexUrl}: ${response.status} ${response.statusText}`);
+  }
+
+  try {
+    return (await response.json()) as StoryIndex;
+  } catch (error) {
+    throw new Error(
+      `The Storybook index at ${indexUrl} is not JSON. Check that \`storybookUrl\` points at Storybook itself.`,
+      { cause: error },
+    );
+  }
 }
 
 /**
@@ -134,6 +158,9 @@ export function deriveManifest(
 ): Manifest {
   const stories: StoryRecord[] = [];
   const allImportPaths = new Set<string>();
+  // Baselines are named by import path and key, and the key strips spaces from
+  // the story name — so `Foo Bar` and `FooBar` in one file would share a file.
+  const baselineOwners = new Map<string, string>();
 
   let capturedCount = 0;
   let totalCount = 0;
@@ -155,6 +182,19 @@ export function deriveManifest(
       );
     }
 
+    const key = `${entry.title}/${entry.name.replaceAll(' ', '')}`;
+    const baselineName = `${entry.importPath}::${key}`;
+    const owner = baselineOwners.get(baselineName);
+
+    if (owner !== undefined) {
+      throw new Error(
+        `Stories "${owner}" and "${entry.title}/${entry.name}" in ${entry.importPath} would share a baseline, `
+          + 'because story names are compared without spaces. Rename one of them.',
+      );
+    }
+
+    baselineOwners.set(baselineName, `${entry.title}/${entry.name}`);
+
     totalCount += projects.length;
     allImportPaths.add(entry.importPath);
 
@@ -166,7 +206,7 @@ export function deriveManifest(
 
     capturedCount += projects.length;
     stories.push({
-      key: `${entry.title}/${entry.name.replaceAll(' ', '')}`,
+      key,
       id: entry.id,
       importPath: entry.importPath,
       domain: domainTag ? domainTag.slice(tags.domainPrefix.length) : 'uncategorized',

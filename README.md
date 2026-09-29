@@ -301,8 +301,9 @@ everything that could drift is pinned. Handled for you:
 - **The clock**, if you set `fixedTime`. Without it, date-relative content — chart axis labels, "Today" headers,
   relative-date fixtures — drifts between runs. Takes a `Date` or an ISO string.
 
-Retries are off, since a retried screenshot comparison tells you nothing a first one didn't. On CI, workers are capped
-at one and Playwright's `github` reporter is added alongside this package's own.
+Retries are off, since a retried screenshot comparison tells you nothing a first one didn't. A trace is kept for every
+failure instead, in the generated `output` directory. On CI, workers are capped at one and Playwright's `github`
+reporter is added alongside this package's own.
 
 Anything else is yours to override through `playwright`, which is merged over the generated config last:
 
@@ -375,7 +376,7 @@ Returns the Playwright config. `projects` is the only required option.
 | `tags`             | see [Tags](#tags)                               | Story selection and grouping                          |
 | `affected`         | `{}`                                            | See [Affected stories](#affected-stories-only)        |
 | `playwright`       | `{}`                                            | Merged over the generated config, last                |
-| `debug`            | `false`                                         | Logs page, network, and channel events per story      |
+| `debug`            | `false`                                         | Logs page, network, channel, server, and setup detail |
 | `warmUpTimeout`    | `60_000`                                        | Milliseconds global setup waits for the first story   |
 
 ### The rest
@@ -419,6 +420,12 @@ means the story's module never loaded — on a Vite dev server, often a dependen
 imports with `504 Outdated Optimize Dep`, which only a cold cache (so, usually CI) triggers. A `last render phase` means
 the story loaded and stalled inside rendering. Set `debug: true` to see the page's console, failed requests, and every
 Storybook channel event, and `storybookServer: { stdout: 'pipe' }` to see the server's own account of it.
+
+**`Story failed to render (storyMissing)`.** Storybook sends this both for an id absent from its index and for a story
+file that failed to import, and logs the import error to the page console. Set `debug: true` to see it.
+
+**`Could not diff against the base ref`.** The base ref, or its merge base with `HEAD`, is not in local history — the
+usual cause is a shallow CI checkout. Fetch full history (`fetch-depth: 0` for `actions/checkout`).
 
 **`STORYBOOK_SCREENSHOTS_DIR is not set.`** Something ran a screenshot test outside a config built by
 `defineScreenshotConfig` — that variable is how the generated directory reaches global setup and the workers.

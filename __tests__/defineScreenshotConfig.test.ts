@@ -169,3 +169,65 @@ describe('defineScreenshotConfig full-rerun paths', () => {
     expect(fullRerunPaths.length).toBeGreaterThan(1);
   });
 });
+
+describe('defineScreenshotConfig debugging', () => {
+  it('keeps a trace of every failure, since retries are off', () => {
+    const config = createConfig();
+
+    expect(config.retries).toBe(0);
+    expect(config.use?.trace).toBe('retain-on-failure');
+  });
+
+  it('pipes the server output when debugging', () => {
+    const webServer = createConfig({ debug: true }).webServer as unknown as Record<string, unknown>;
+
+    expect(webServer.stdout).toBe('pipe');
+  });
+
+  it('leaves the server output alone otherwise', () => {
+    const webServer = createConfig().webServer as unknown as Record<string, unknown>;
+
+    expect(webServer.stdout).toBeUndefined();
+  });
+
+  it('lets an explicit server output setting win over debugging', () => {
+    const webServer = createConfig({ debug: true, storybookServer: { stdout: 'ignore' } })
+      .webServer as unknown as Record<string, unknown>;
+
+    expect(webServer.stdout).toBe('ignore');
+  });
+});
+
+describe('defineScreenshotConfig environment', () => {
+  const originalContinuousIntegration = process.env.CI;
+
+  afterEach(() => {
+    if (originalContinuousIntegration === undefined) {
+      delete process.env.CI;
+    } else {
+      process.env.CI = originalContinuousIntegration;
+    }
+  });
+
+  it('runs one worker and adds the github reporter on CI', () => {
+    process.env.CI = 'true';
+
+    const config = createConfig();
+
+    expect(config.workers).toBe(1);
+    expect(Array.isArray(config.reporter) && config.reporter[0]).toEqual(['github']);
+  });
+
+  it('leaves workers to Playwright and uses only its own reporter locally', () => {
+    delete process.env.CI;
+
+    const config = createConfig();
+
+    expect(config.workers).toBeUndefined();
+    expect(typeof config.reporter).toBe('string');
+  });
+
+  it('lets playwright overrides win over the generated config', () => {
+    expect(createConfig({ playwright: { retries: 2 } }).retries).toBe(2);
+  });
+});

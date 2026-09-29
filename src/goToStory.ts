@@ -2,8 +2,11 @@ import type { Page } from '@playwright/test';
 import type { WaitForStoryRenderConfig } from './waitForStoryRender.js';
 import { waitForStoryRender } from './waitForStoryRender.js';
 
-/** Serializes Storybook globals into the `globals` query parameter, e.g. `theme:dark;locale:en`. */
-function getGlobalsParameter(globals: Record<string, string>): string {
+/**
+ * Serializes Storybook globals into the `globals` query parameter, e.g. `theme:dark;locale:en`.
+ * @internal Exported for tests.
+ */
+export function getGlobalsParameter(globals: Record<string, string>): string {
   return Object.entries(globals)
     .map(([name, value]) => `${name}:${value}`)
     .join(';');
@@ -31,11 +34,23 @@ export async function goToStory(
   const globalsParameter = getGlobalsParameter(globals);
   const suffix = globalsParameter ? `&globals=${globalsParameter}` : '';
 
+  const startedAt = performance.now();
+
   await waitForStoryRender(page, `/iframe.html?id=${storyId}&viewMode=story${suffix}`, {
     timeout: RENDER_TIMEOUT,
     ...config,
   });
+
+  const renderedAt = performance.now();
+
   await waitForResources(page);
+
+  if (config.debug) {
+    const renderDuration = Math.round(renderedAt - startedAt);
+    const resourcesDuration = Math.round(performance.now() - renderedAt);
+
+    console.log(`[timing] ${storyId} rendered in ${renderDuration}ms, resources settled in ${resourcesDuration}ms`);
+  }
 }
 
 /**
@@ -50,6 +65,9 @@ async function waitForResources(page: Page): Promise<void> {
       document: {
         querySelectorAll: (selector: string) => ArrayLike<{
           complete?: boolean;
+          currentSrc?: string;
+          href?: string;
+          src?: string;
           addEventListener: (event: string, handler: () => void) => void;
         }>;
       };
@@ -57,22 +75,34 @@ async function waitForResources(page: Page): Promise<void> {
     };
 
     const elements = Array.from(window.document.querySelectorAll('img, link[rel="stylesheet"], script[src]'));
+    const pending = new Set<string>();
 
     const allLoaded = Promise.all(
       elements
         .filter((element) => element.complete === false)
-        .map(
-          (element) =>
-            new Promise<void>((resolve) => {
-              element.addEventListener('load', resolve);
-              element.addEventListener('error', resolve);
-            }),
-        ),
+        .map((element) => {
+          // Empty strings are skipped too, as an element without that attribute reports one.
+          const source = [element.currentSrc, element.src, element.href].find(Boolean) ?? '<inline>';
+
+          pending.add(source);
+
+          return new Promise<void>((resolve) => {
+            const settle = () => {
+              pending.delete(source);
+              resolve();
+            };
+
+            element.addEventListener('load', settle);
+            element.addEventListener('error', settle);
+          });
+        }),
     );
 
+    // Names what is still loading, so a slow or hanging asset can be found
+    // without a trace.
     const timeout = new Promise<void>((_, reject) =>
       setTimeout(() => {
-        reject(new Error('Timed out waiting for resources to load'));
+        reject(new Error(`Timed out after 5000ms waiting for resources to load: ${[...pending].join(', ')}`));
       }, 5000),
     );
 

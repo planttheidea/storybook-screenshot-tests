@@ -6,8 +6,13 @@ interface Channel {
   once: (event: string, callback: (payload?: unknown) => void) => unknown;
 }
 
+interface StoryError {
+  event: string;
+  payload: unknown;
+}
+
 interface StoryState {
-  error: string | undefined;
+  error: StoryError | undefined;
 }
 
 export interface WaitForStoryRenderConfig {
@@ -76,16 +81,36 @@ export async function waitForStoryRender(
           globals.__storyRendered = true;
         });
 
-        const onError = (payload: unknown) => {
-          globals.__storyError = payload instanceof Error ? payload.message : String(payload);
+        // Storybook sends plain objects over the channel, not `Error` instances,
+        // so the payload is kept whole and formatted outside the page. Cloned
+        // through JSON so it survives the trip back.
+        // `Error` instances are unpacked by hand — JSON drops every field of one.
+        const getSerializable = (value: unknown): unknown => {
+          if (value instanceof Error) {
+            return { name: value.name, message: value.message, stack: value.stack };
+          }
+
+          return Array.isArray(value) ? value.map(getSerializable) : value;
         };
 
-        channel.once('configError', onError);
-        channel.once('playFunctionThrewException', onError);
-        channel.once('storyErrored', onError);
-        channel.once('storyMissing', onError);
-        channel.once('storyThrewException', onError);
-        channel.once('unhandledErrorsWhilePlaying', onError);
+        const setError = (event: string) => (payload: unknown) => {
+          let serialized: unknown;
+
+          try {
+            serialized = JSON.parse(JSON.stringify(getSerializable(payload) ?? null));
+          } catch {
+            serialized = String(payload);
+          }
+
+          globals.__storyError = { event, payload: serialized };
+        };
+
+        channel.once('configError', setError('configError'));
+        channel.once('playFunctionThrewException', setError('playFunctionThrewException'));
+        channel.once('storyErrored', setError('storyErrored'));
+        channel.once('storyMissing', setError('storyMissing'));
+        channel.once('storyThrewException', setError('storyThrewException'));
+        channel.once('unhandledErrorsWhilePlaying', setError('unhandledErrorsWhilePlaying'));
 
         channel.once('storyFinished', (payload) => {
           if (globals.__storyRendered || globals.__storyError != null) {
@@ -99,7 +124,7 @@ export async function waitForStoryRender(
             && (!('status' in payload) || payload.status !== 'success')
           ) {
             // It finished in some unforeseen way, so treat it as an error.
-            onError(payload);
+            setError('storyFinished')(payload);
           }
         });
       },
@@ -121,29 +146,110 @@ export async function waitForStoryRender(
       { timeout },
     );
   } catch (error) {
-    throw new Error(`Story did not render within ${timeout}ms (${await getRenderPhaseDescription(page)}).`, {
-      cause: error,
-    });
+    throw new Error(
+      `Story did not render within ${timeout}ms (${getRenderPhaseDescription(await getRenderPhase(page))}).`,
+      {
+        cause: error,
+      },
+    );
   }
 
   const { error } = (await handle.jsonValue()) as StoryState;
 
   if (error !== undefined) {
-    throw new Error(`Story failed to render: ${error}`);
+    const hint = getStoryErrorHint(error.event);
+
+    throw new Error(
+      `Story failed to render (${error.event}): ${getStoryErrorMessage(error.payload)}${hint ? `\n${hint}` : ''}`,
+    );
   }
+}
+
+/**
+ * Formats a Storybook channel error payload. Exceptions arrive as
+ * `{ name, message, stack }`, render errors as `{ title, description }`, a
+ * missing story as its id, unhandled play errors as a list of any of these, and
+ * an unsuccessful `storyFinished` as `{ status }`.
+ * @internal Exported for tests.
+ */
+export function getStoryErrorMessage(payload: unknown): string {
+  if (payload == null) {
+    return 'no details were given';
+  }
+
+  if (typeof payload === 'string') {
+    return payload;
+  }
+
+  if (Array.isArray(payload)) {
+    return payload.map(getStoryErrorMessage).join('\n');
+  }
+
+  if (typeof payload === 'object') {
+    const { description, message, stack, status, title } = payload as Record<string, unknown>;
+
+    // A stack already opens with the name and message, and says where it came from.
+    if (typeof stack === 'string' && stack) {
+      return stack;
+    }
+
+    if (typeof message === 'string' && message) {
+      return message;
+    }
+
+    if (typeof title === 'string' || typeof description === 'string') {
+      return [title, description].filter((part) => typeof part === 'string' && part).join(': ');
+    }
+
+    if (typeof status === 'string') {
+      return `the story finished with status "${status}"`;
+    }
+  }
+
+  return JSON.stringify(payload);
+}
+
+/**
+ * Explains an event whose payload says little on its own. `storyMissing` carries
+ * only the story id, and Storybook sends it both for an id absent from the index
+ * and for a story file that failed to import — the import error itself goes to
+ * the page console.
+ * @internal Exported for tests.
+ */
+export function getStoryErrorHint(event: string): string | undefined {
+  if (event === 'storyMissing') {
+    return (
+      'Storybook could not load this story: either its id is not in the index, or its file failed to import. '
+      + 'The import error is logged to the page console — set `debug: true` to see it. On a Vite dev server, a '
+      + '504 "Outdated Optimize Dep" there means dependencies were re-optimized mid-run.'
+    );
+  }
+
+  return undefined;
 }
 
 /**
  * Describes how far the story got, which separates a preview that never loaded
  * (a failed import, a server reload mid-request) from a story stuck rendering.
+ * @internal Exported for tests.
  */
-async function getRenderPhaseDescription(page: Page): Promise<string> {
-  try {
-    const phase = await page.evaluate(() => (globalThis as Record<string, unknown>).__storyPhase);
-
-    return typeof phase === 'string' ? `last render phase: ${phase}` : 'the preview never started rendering';
-  } catch {
+export function getRenderPhaseDescription(phase: unknown): string {
+  if (phase === null) {
     return 'the page could not be read';
+  }
+
+  return typeof phase === 'string' ? `last render phase: ${phase}` : 'the preview never started rendering';
+}
+
+/**
+ * The last render phase the story reported — `undefined` when it reported none,
+ * `null` when the page itself cannot be read.
+ */
+async function getRenderPhase(page: Page): Promise<unknown> {
+  try {
+    return await page.evaluate(() => (globalThis as Record<string, unknown>).__storyPhase);
+  } catch {
+    return null;
   }
 }
 
