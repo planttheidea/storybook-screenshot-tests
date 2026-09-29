@@ -3,6 +3,7 @@ import type { BrowserType } from '@playwright/test';
 import color from 'picocolors';
 import { deriveAffected } from './affected.js';
 import { cleanUpBaselines } from './cleanUpBaselines.js';
+import { createDebugLogger } from './debugLogger.js';
 import { deriveManifest, getStoryIndex, setManifest } from './manifest.js';
 import { getRepositoryRoot, getResolvedOptions } from './paths.js';
 import { setFontConfigOverride } from './setFontConfigOverride.js';
@@ -90,15 +91,6 @@ export async function globalSetup(browserType: BrowserType): Promise<void> {
   }
 
   logDebug(`warm-up took ${Math.round(performance.now() - startedAt)}ms`);
-}
-
-/** Logs to stdout only when `debug` is set, prefixed so it stands apart from the reporter. */
-function createDebugLogger(enabled: boolean): (message: string) => void {
-  return (message) => {
-    if (enabled) {
-      console.log(color.gray(`[screenshots] ${message}`));
-    }
-  };
 }
 
 /**

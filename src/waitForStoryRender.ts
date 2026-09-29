@@ -1,4 +1,6 @@
 import type { Page } from '@playwright/test';
+import type { DebugLogger } from './debugLogger.js';
+import { createDebugLogger } from './debugLogger.js';
 
 interface Channel {
   emit: (event: string, ...args: unknown[]) => unknown;
@@ -36,7 +38,7 @@ export async function waitForStoryRender(
   { debug = false, timeout = 30_000 }: WaitForStoryRenderConfig = {},
 ): Promise<void> {
   if (debug) {
-    setDebugListeners(page);
+    setDebugListeners(page, createDebugLogger(debug));
   }
 
   // Serialized and run in the page, so nothing from this closure exists there —
@@ -57,6 +59,7 @@ export async function waitForStoryRender(
               detail = '<unserializable>';
             }
 
+            // The page's console, which the debug logger forwards as `[page:log]`.
             console.log(`[channel] ${event} ${detail}`);
 
             return originalEmit(event, ...args);
@@ -258,28 +261,28 @@ async function getRenderPhase(page: Page): Promise<unknown> {
  * Vite dev server re-optimizing dependencies answers in-flight module requests
  * with `504 Outdated Optimize Dep`, and the story that asked for them never renders.
  */
-function setDebugListeners(page: Page): void {
+function setDebugListeners(page: Page, logDebug: DebugLogger): void {
   page.on('console', (message) => {
-    console.log(`[page:${message.type()}] ${message.text()}`);
+    logDebug(`[page:${message.type()}] ${message.text()}`);
   });
 
   page.on('pageerror', (error) => {
-    console.log(`[pageerror] ${error.message}`);
+    logDebug(`[pageerror] ${error.message}`);
   });
 
   page.on('requestfailed', (request) => {
-    console.log(`[requestfailed] ${request.url()} ${request.failure()?.errorText ?? ''}`);
+    logDebug(`[requestfailed] ${request.url()} ${request.failure()?.errorText ?? ''}`);
   });
 
   page.on('response', (response) => {
     if (response.status() >= 400) {
-      console.log(`[response:${response.status()}] ${response.url()}`);
+      logDebug(`[response:${response.status()}] ${response.url()}`);
     }
   });
 
   page.on('framenavigated', (frame) => {
     if (frame === page.mainFrame()) {
-      console.log(`[navigated] ${frame.url()}`);
+      logDebug(`[navigated] ${frame.url()}`);
     }
   });
 }

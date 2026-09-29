@@ -1,5 +1,11 @@
 # storybook-screenshot-tests CHANGELOG
 
+## 2.2.1
+
+All `debug` output — page console, page errors, failed requests, navigations, and per-test timings, not just global
+setup — goes through one logger, prefixed `[screenshots]`, so it can be told apart from the reporter and filtered as
+one.
+
 ## 2.2.0
 
 ### Enhancements
