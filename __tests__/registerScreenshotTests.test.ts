@@ -10,6 +10,7 @@ function createStory(key: string, domain: string): StoryRecord {
     domain,
     failing: false,
     projects: ['light'],
+    storyOptions: {},
   };
 }
 

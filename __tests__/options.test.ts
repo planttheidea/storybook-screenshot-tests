@@ -62,20 +62,30 @@ describe('resolveOptions', () => {
     ).not.toThrow();
   });
 
-  it('normalizes a fixed time to an iso string so the result is json-safe', () => {
-    const resolved = resolveOptions({ projects, fixedTime: new Date('2026-07-15T12:00:00.000Z') }, '/app');
+  it('normalizes now to an iso string so the result is json-safe', () => {
+    const resolved = resolveOptions({ projects, now: new Date('2026-07-15T12:00:00.000Z') }, '/app');
 
-    expect(resolved.fixedTime).toBe('2026-07-15T12:00:00.000Z');
+    expect(resolved.now).toBe('2026-07-15T12:00:00.000Z');
 
     const parsedResolved = JSON.parse(JSON.stringify(resolved)) as Record<string, any>;
 
-    expect(parsedResolved.fixedTime).toBe('2026-07-15T12:00:00.000Z');
+    expect(parsedResolved.now).toBe('2026-07-15T12:00:00.000Z');
   });
 
-  it('leaves an already-serialized fixed time alone', () => {
-    expect(resolveOptions({ projects, fixedTime: '2026-07-15T12:00:00.000Z' }, '/app').fixedTime).toBe(
+  it('leaves an already-serialized now alone', () => {
+    expect(resolveOptions({ projects, now: '2026-07-15T12:00:00.000Z' }, '/app').now).toBe('2026-07-15T12:00:00.000Z');
+  });
+
+  it('accepts the deprecated fixedTime as now', () => {
+    expect(resolveOptions({ projects, fixedTime: '2026-07-15T12:00:00.000Z' }, '/app').now).toBe(
       '2026-07-15T12:00:00.000Z',
     );
+  });
+
+  it('prefers now over the deprecated fixedTime', () => {
+    expect(
+      resolveOptions({ projects, now: '2026-10-04T00:00:00.000Z', fixedTime: '2026-07-15T12:00:00.000Z' }, '/app').now,
+    ).toBe('2026-10-04T00:00:00.000Z');
   });
 
   it('records the root directory it was given', () => {

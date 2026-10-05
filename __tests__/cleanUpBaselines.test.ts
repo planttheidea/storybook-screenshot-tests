@@ -13,6 +13,7 @@ function createStory(overrides: Partial<StoryRecord> = {}): StoryRecord {
     domain: 'foundation',
     failing: false,
     projects: ['light'],
+    storyOptions: {},
     ...overrides,
   };
 }

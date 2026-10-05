@@ -2,6 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { TagOptions } from './options.js';
 import { getGeneratedDirectory } from './paths.js';
+import type { ResolvedStoryOptions } from './storyOptions.js';
 
 interface StoryIndexEntry {
   id: string;
@@ -28,6 +29,8 @@ export interface StoryRecord {
   failing: boolean;
   /** Names of the projects this story is captured in — every project, unless its tags name specific ones. */
   projects: string[];
+  /** The story's `screenshotOptions` parameter, read from the preview during global setup. */
+  storyOptions: ResolvedStoryOptions;
 }
 
 export interface Manifest {
@@ -212,6 +215,7 @@ export function deriveManifest(
       domain: domainTag ? domainTag.slice(tags.domainPrefix.length) : 'uncategorized',
       failing: entry.tags.includes(tags.failing),
       projects,
+      storyOptions: {},
     });
   }
 

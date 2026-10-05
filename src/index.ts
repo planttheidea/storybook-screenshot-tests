@@ -15,3 +15,4 @@ export type { RegisterScreenshotTestsInput } from './registerScreenshotTests.js'
 export type { ScreenshotReporterOptions } from './reporter.js';
 export type { BaseTest, ScreenshotOptions, ScreenshotTest } from './screenshotTest.js';
 export type { Manifest, StoryRecord } from './manifest.js';
+export type { ResolvedStoryOptions, ScreenshotStoryOptions } from './storyOptions.js';

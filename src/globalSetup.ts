@@ -4,9 +4,12 @@ import color from 'picocolors';
 import { deriveAffected } from './affected.js';
 import { cleanUpBaselines } from './cleanUpBaselines.js';
 import { createDebugLogger } from './debugLogger.js';
+import type { Manifest } from './manifest.js';
 import { deriveManifest, getStoryIndex, setManifest } from './manifest.js';
 import { getRepositoryRoot, getResolvedOptions } from './paths.js';
 import { setFontConfigOverride } from './setFontConfigOverride.js';
+import type { ExtractedStoryOptions } from './storyOptions.js';
+import { applyStoryOptions, extractStoryOptions } from './storyOptions.js';
 import { waitForStoryRender } from './waitForStoryRender.js';
 import { warmUpServer } from './warmUpServer.js';
 
@@ -16,9 +19,10 @@ import { warmUpServer } from './warmUpServer.js';
  * 1. Neutralizes host fontconfig differences Playwright's Chromium cannot parse.
  * 2. Fetches Storybook's story index.
  * 3. Narrows to the stories affected by the current diff, when a base ref is set.
- * 4. Writes the manifest the test workers read at module load.
- * 5. Removes baselines for stories that no longer exist.
- * 6. Warms Storybook on the first story, so the first test does not pay for the cold start.
+ * 4. Removes baselines for stories that no longer exist.
+ * 5. Warms Storybook on the first story, so the first test does not pay for the cold start.
+ * 6. Reads each story's `screenshotOptions` parameter from that warm preview.
+ * 7. Writes the manifest the test workers read at module load.
  *
  * Takes the runner's own `chromium` so the warm-up uses the browsers the tests
  * will use, rather than whichever Playwright installation this package resolves to.
@@ -52,21 +56,13 @@ export async function globalSetup(browserType: BrowserType): Promise<void> {
 
   const manifest = deriveManifest(index, options.tags, projectNames, importPaths);
 
-  setManifest(manifest);
   cleanUpBaselines(options.rootDir, everyStory.stories);
-
-  // No count here: `--project`, `--grep`, and the rest are applied after
-  // global setup, so any number this could print may overstate the run. The
-  // reporter prints the real one once Playwright has filtered.
-  console.log(
-    manifest.capturedCount < manifest.totalCount
-      ? `Manifest written, narrowed to stories affected since ${options.affected.baseRef}.`
-      : 'Manifest written.',
-  );
 
   const firstStory = manifest.stories[0];
 
   if (!firstStory) {
+    writeManifest(manifest, options.affected.baseRef);
+
     return;
   }
 
@@ -74,13 +70,20 @@ export async function globalSetup(browserType: BrowserType): Promise<void> {
 
   const startedAt = performance.now();
 
+  let extracted: Record<string, ExtractedStoryOptions> | undefined;
+
   try {
-    await warmUpServer(browserType, 'Storybook', (page) =>
-      waitForStoryRender(page, `${options.storybookUrl}/iframe.html?id=${firstStory.id}&viewMode=story`, {
+    await warmUpServer(browserType, 'Storybook', async (page) => {
+      await waitForStoryRender(page, `${options.storybookUrl}/iframe.html?id=${firstStory.id}&viewMode=story`, {
         debug: options.debug,
         timeout: options.warmUpTimeout,
-      }),
-    );
+      });
+
+      extracted = await extractStoryOptions(
+        page,
+        manifest.stories.map((story) => story.id),
+      );
+    });
   } catch (error) {
     throw new Error(
       `Warming up Storybook on "${firstStory.key}" (${firstStory.id}) failed: `
@@ -91,6 +94,33 @@ export async function globalSetup(browserType: BrowserType): Promise<void> {
   }
 
   logDebug(`warm-up took ${Math.round(performance.now() - startedAt)}ms`);
+
+  if (!extracted) {
+    console.warn(
+      color.yellow(
+        'The Storybook preview exposes no story store, so `screenshotOptions` parameters are ignored this run.',
+      ),
+    );
+  }
+
+  writeManifest(extracted ? applyStoryOptions(manifest, extracted, logDebug) : manifest, options.affected.baseRef);
+}
+
+/**
+ * Writes the manifest and says so.
+ *
+ * No count here: `--project`, `--grep`, and the rest are applied after global
+ * setup, so any number this could print may overstate the run. The reporter
+ * prints the real one once Playwright has filtered.
+ */
+function writeManifest(manifest: Manifest, baseRef: string | undefined): void {
+  setManifest(manifest);
+
+  console.log(
+    manifest.capturedCount < manifest.totalCount
+      ? `Manifest written, narrowed to stories affected since ${baseRef}.`
+      : 'Manifest written.',
+  );
 }
 
 /**

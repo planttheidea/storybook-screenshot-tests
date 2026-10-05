@@ -1,5 +1,14 @@
 # storybook-screenshot-tests CHANGELOG
 
+## 2.3.0
+
+### Enhancements
+
+- Stories can override capture options through a `screenshotOptions` parameter, set on the story, its meta, or the
+  preview. The first is `now`, which pins the clock for that story over the config's own. Global setup reads the
+  parameters from the preview it warms up, so each story still renders once, at the right time.
+- The config's `fixedTime` is renamed to `now`, to match. `fixedTime` still works, and is deprecated.
+
 ## 2.2.2
 
 The Storybook server's output is printed only while it starts, unless `debug` is on. Startup output explains a server
