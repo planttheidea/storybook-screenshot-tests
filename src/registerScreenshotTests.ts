@@ -45,14 +45,6 @@ export function registerScreenshotTests({ test: baseTest, expect }: RegisterScre
   const { stories } = getManifest();
   const test = createScreenshotTest(baseTest);
 
-  if (options.fixedTime) {
-    const fixedTime = new Date(options.fixedTime);
-
-    test.beforeEach(async ({ context }) => {
-      await context.clock.setFixedTime(fixedTime);
-    });
-  }
-
   for (const [domain, byComponent] of getGroupedStories(stories)) {
     test.describe(domain, () => {
       for (const [componentName, componentStories] of byComponent) {
@@ -68,6 +60,12 @@ export function registerScreenshotTests({ test: baseTest, expect }: RegisterScre
 
             test(name, { tag }, async ({ page, storybookGlobals }, testInfo) => {
               test.fixme(story.failing, `Known failure — tagged ${options.tags.failing}`);
+
+              const now = story.storyOptions.now ?? options.now;
+
+              if (now) {
+                await page.clock.setFixedTime(new Date(now));
+              }
 
               await goToStory(page, story.id, storybookGlobals, { debug: options.debug });
               await expect(page).toHaveScreenshot(

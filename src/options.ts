@@ -130,7 +130,10 @@ export interface ScreenshotConfigOptions {
   /**
    * Pins the clock for every capture. Without it, date-relative content —
    * chart axis labels, "Today" headers, relative-date fixtures — drifts between runs.
+   * A story's `screenshotOptions.now` parameter overrides it.
    */
+  now?: Date | string;
+  /** @deprecated Renamed to `now`, which wins when both are set. */
   fixedTime?: Date | string;
   projects: ScreenshotProjectOptions[];
   tags?: Partial<TagOptions>;
@@ -163,7 +166,7 @@ export interface ResolvedOptions {
   nx: boolean;
   rootDir: string;
   generatedDir: string;
-  fixedTime: string | undefined;
+  now: string | undefined;
   projects: ScreenshotProjectOptions[];
   tags: TagOptions;
   affected: AffectedOptions;
@@ -179,7 +182,7 @@ const DEFAULT_TAGS: TagOptions = {
 };
 
 /**
- * Applies defaults and normalizes `fixedTime` to an ISO string so the result is
+ * Applies defaults and normalizes `now` to an ISO string so the result is
  * JSON-safe.
  *
  * `defaultFullRerunPaths` are the ones every consumer shares — this config
@@ -191,7 +194,8 @@ export function resolveOptions(
   rootDir: string,
   defaultFullRerunPaths: string[] = [],
 ): ResolvedOptions {
-  const fixedTime = options.fixedTime;
+  // eslint-disable-next-line @typescript-eslint/no-deprecated -- read so existing configs keep working.
+  const now = options.now ?? options.fixedTime;
   const fullRerunPaths = [...new Set([...defaultFullRerunPaths, ...(options.affected?.fullRerunPaths ?? [])])];
   const tags = { ...DEFAULT_TAGS, ...options.tags };
 
@@ -214,7 +218,7 @@ export function resolveOptions(
     nx: options.nx ?? false,
     rootDir,
     generatedDir: options.generatedDir ?? '__generated__/screenshots',
-    fixedTime: fixedTime instanceof Date ? fixedTime.toISOString() : fixedTime,
+    now: now instanceof Date ? now.toISOString() : now,
     projects: options.projects,
     tags,
     affected: { ...options.affected, fullRerunPaths },

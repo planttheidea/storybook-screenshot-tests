@@ -133,7 +133,10 @@ interface ScreenshotConfigOptions {
     /**
      * Pins the clock for every capture. Without it, date-relative content —
      * chart axis labels, "Today" headers, relative-date fixtures — drifts between runs.
+     * A story's `screenshotOptions.now` parameter overrides it.
      */
+    now?: Date | string;
+    /** @deprecated Renamed to `now`, which wins when both are set. */
     fixedTime?: Date | string;
     projects: ScreenshotProjectOptions[];
     tags?: Partial<TagOptions>;
@@ -180,14 +183,35 @@ declare function defineScreenshotConfig(options: ScreenshotConfigOptions): Playw
  * 1. Neutralizes host fontconfig differences Playwright's Chromium cannot parse.
  * 2. Fetches Storybook's story index.
  * 3. Narrows to the stories affected by the current diff, when a base ref is set.
- * 4. Writes the manifest the test workers read at module load.
- * 5. Removes baselines for stories that no longer exist.
- * 6. Warms Storybook on the first story, so the first test does not pay for the cold start.
+ * 4. Removes baselines for stories that no longer exist.
+ * 5. Warms Storybook on the first story, so the first test does not pay for the cold start.
+ * 6. Reads each story's `screenshotOptions` parameter from that warm preview.
+ * 7. Writes the manifest the test workers read at module load.
  *
  * Takes the runner's own `chromium` so the warm-up uses the browsers the tests
  * will use, rather than whichever Playwright installation this package resolves to.
  */
 declare function globalSetup(browserType: BrowserType): Promise<void>;
+
+/**
+ * Per-story capture options, read from the story's `screenshotOptions`
+ * parameter. Storybook merges parameters from the preview, the meta, and the
+ * story, so these can be set at any of those levels.
+ *
+ * ```ts
+ * const meta = {
+ *   parameters: { screenshotOptions: { now: '2026-10-04' } },
+ * } satisfies Meta<typeof Calendar>;
+ * ```
+ */
+interface ScreenshotStoryOptions {
+    /** Pins the clock for this story's capture, over the config's `now`. */
+    now?: Date | string;
+}
+/** Story options normalized to JSON-safe values, as stored in the manifest. */
+interface ResolvedStoryOptions {
+    now?: string;
+}
 
 /** One story, reduced to what the test tree and the baseline path need. */
 interface StoryRecord {
@@ -199,6 +223,8 @@ interface StoryRecord {
     failing: boolean;
     /** Names of the projects this story is captured in — every project, unless its tags name specific ones. */
     projects: string[];
+    /** The story's `screenshotOptions` parameter, read from the preview during global setup. */
+    storyOptions: ResolvedStoryOptions;
 }
 interface Manifest {
     stories: StoryRecord[];
@@ -299,4 +325,4 @@ declare class ScreenshotReporter implements Reporter {
 }
 
 export { ScreenshotReporter, createScreenshotTest, defineScreenshotConfig, globalSetup, registerScreenshotTests };
-export type { AffectedOptions, BaseTest, Manifest, RegisterScreenshotTestsInput, ScreenshotConfigOptions, ScreenshotOptions, ScreenshotProjectOptions, ScreenshotReporterOptions, ScreenshotTest, StoryRecord, StorybookServerOptions, TagOptions };
+export type { AffectedOptions, BaseTest, Manifest, RegisterScreenshotTestsInput, ResolvedStoryOptions, ScreenshotConfigOptions, ScreenshotOptions, ScreenshotProjectOptions, ScreenshotReporterOptions, ScreenshotStoryOptions, ScreenshotTest, StoryRecord, StorybookServerOptions, TagOptions };

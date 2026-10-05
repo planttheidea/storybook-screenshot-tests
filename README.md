@@ -29,6 +29,7 @@ every run, the test tree is built from that, and baselines for stories that no l
     - [What the graph cannot see](#what-the-graph-cannot-see)
     - [Dependency and build-output widening](#dependency-and-build-output-widening)
   - [Determinism](#determinism)
+    - [Per-story options](#per-story-options)
   - [The Storybook server](#the-storybook-server)
   - [How it works](#how-it-works)
   - [API](#api)
@@ -298,8 +299,9 @@ everything that could drift is pinned. Handled for you:
 - **Time zone.** `UTC` for every run.
 - **Assets.** After a story reports rendered, images, stylesheets, and scripts still in flight are awaited, then one
   animation frame, so nothing lands between render and capture.
-- **The clock**, if you set `fixedTime`. Without it, date-relative content — chart axis labels, "Today" headers,
-  relative-date fixtures — drifts between runs. Takes a `Date` or an ISO string.
+- **The clock**, if you set `now`. Without it, date-relative content — chart axis labels, "Today" headers, relative-date
+  fixtures — drifts between runs. Takes a `Date` or an ISO string. A story can set its own; see
+  [Per-story options](#per-story-options).
 
 Retries are off, since a retried screenshot comparison tells you nothing a first one didn't. With `debug` on, a trace is
 kept for every failure instead, in the generated `output` directory — off otherwise, since recording one slows every
@@ -314,6 +316,34 @@ defineScreenshotConfig({
   projects: [...],
 });
 ```
+
+### Per-story options
+
+A story's `screenshotOptions` parameter overrides the config for that story's capture. Storybook merges parameters from
+the preview, the meta, and the story, so setting it on the meta covers every story in the file, and a story can still
+override the meta:
+
+```ts
+import type { ScreenshotStoryOptions } from '@planttheidea/storybook-screenshot-tests';
+
+const meta = {
+  parameters: { screenshotOptions: { now: '2026-10-04' } satisfies ScreenshotStoryOptions },
+  tags: ['screenshot'],
+  /* ... */
+} satisfies Meta<typeof Calendar>;
+
+export const LeapDay: StoryObj<typeof meta> = {
+  parameters: { screenshotOptions: { now: new Date('2028-02-29T09:00:00Z') } },
+};
+```
+
+| Option | Notes                                             |
+| ------ | ------------------------------------------------- |
+| `now`  | `Date` or ISO string, over the config's own `now` |
+
+Parameters aren't in Storybook's index, so global setup reads them from the preview it has just warmed up, loading the
+file of each story it captures. A value that isn't a valid date fails the run, naming the story. A story whose file
+fails to load there keeps the config's defaults, and its test reports the real error.
 
 ## The Storybook server
 
@@ -347,8 +377,9 @@ Worth knowing when something surprises you, because the ordering explains most o
    extensions. Files are only rewritten when their content changes, so an editor watching the directory isn't woken on
    every run.
 2. **Global setup**, in the runner process, before test discovery. Applies the fontconfig override, fetches Storybook's
-   `/index.json`, narrows to affected stories when a base ref is set, writes `manifest.json`, cleans up orphaned
-   baselines, and warms Storybook on the first story so the first test doesn't pay for the cold start.
+   `/index.json`, narrows to affected stories when a base ref is set, cleans up orphaned baselines, warms Storybook on
+   the first story so the first test doesn't pay for the cold start, reads each captured story's `screenshotOptions`
+   from that warm preview, and writes `manifest.json`.
 3. **Test registration**, at module load in each worker. The stub calls `registerScreenshotTests` with the runner's own
    `test` and `expect`, and the tree is built from the manifest — grouped by domain, then component, then story.
 
@@ -373,7 +404,8 @@ Returns the Playwright config. `projects` is the only required option.
 | `nx`               | `false`                                         | Keeps an Nx-launched server inside the killable group |
 | `rootDir`          | directory of the calling config file            | Base every baseline path resolves against             |
 | `generatedDir`     | `__generated__/screenshots`                     | Relative to `rootDir`                                 |
-| `fixedTime`        | none                                            | `Date` or ISO string, pinned for every capture        |
+| `now`              | none                                            | `Date` or ISO string, pinned for every capture        |
+| `fixedTime`        | none                                            | Deprecated alias of `now`                             |
 | `tags`             | see [Tags](#tags)                               | Story selection and grouping                          |
 | `affected`         | `{}`                                            | See [Affected stories](#affected-stories-only)        |
 | `playwright`       | `{}`                                            | Merged over the generated config, last                |
@@ -394,7 +426,7 @@ directory. You don't normally call them yourself.
 
 Types are exported for all of it: `ScreenshotConfigOptions`, `ScreenshotProjectOptions`, `StorybookServerOptions`,
 `TagOptions`, `AffectedOptions`, `RegisterScreenshotTestsInput`, `ScreenshotOptions`, `ScreenshotTest`, `BaseTest`,
-`Manifest`, and `StoryRecord`.
+`Manifest`, `StoryRecord`, `ScreenshotStoryOptions`, and `ResolvedStoryOptions`.
 
 Each of these takes the runner's objects as arguments rather than importing them, and that is the load-bearing detail of
 the whole package. Playwright's test registry lives inside the `@playwright/test` module instance, so tests registered
