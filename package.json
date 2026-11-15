@@ -4,7 +4,6 @@
     "name": "Tony Quetano",
     "url": "https://www.planttheidea.com/"
   },
-  "bin": "./dist/es/bin.mjs",
   "dependencies": {
     "dependency-cruiser": "^18.2.0",
     "picocolors": "^1.1.1"
@@ -13,7 +12,6 @@
   "devDependencies": {
     "@planttheidea/build-tools": "^2.0.8",
     "@playwright/test": "1.62.1",
-    "@rollup/plugin-typescript": "^12.3.0",
     "@vitest/coverage-v8": "^4.1.11",
     "eslint": "^9.39.5",
     "prettier": "^3.9.6",

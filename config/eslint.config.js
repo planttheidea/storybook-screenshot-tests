@@ -24,12 +24,6 @@ export default createEslintConfig({
       rules: {
         'import/no-unresolved': ['error', { ignore: ['^typescript-eslint$'] }],
       },
-      // The import plugin's own parser cannot read the modern syntax in build
-      // dependencies like `typescript`, and reports a parse error on every rule
-      // that opens them. Their exports are not this package's to check.
-      settings: {
-        'import/ignore': ['node_modules'],
-      },
     },
     {
       files: ['src/globalSetup.ts'],
