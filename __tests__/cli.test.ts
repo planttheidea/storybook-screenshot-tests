@@ -30,8 +30,8 @@ afterEach(() => {
 });
 
 describe('runCli', () => {
-  it('serves the directory on port 6007 by default, and keeps running', async () => {
-    await expect(runCli(['serve', root])).resolves.toBeUndefined();
+  it('serves the directory on the port given, and keeps running', async () => {
+    await expect(runCli(['serve', root, '--port', '6007'])).resolves.toBeUndefined();
 
     expect(serveStatic).toHaveBeenCalledWith({ directory: root, port: 6007, host: undefined });
     expect(log).toHaveBeenCalledWith(`Serving ${root} at http://localhost:6007`);
@@ -51,7 +51,7 @@ describe('runCli', () => {
 
     serveStatic.mockResolvedValue(server);
 
-    await runCli(['serve', root]);
+    await runCli(['serve', root, '-p', '6007']);
     process.emit('SIGTERM');
 
     expect(server.close).toHaveBeenCalled();
@@ -68,7 +68,7 @@ describe('runCli', () => {
     { name: 'no command', argv: () => [] },
     { name: 'no directory', argv: () => ['serve'] },
     { name: 'an unknown command', argv: () => ['build', root] },
-    { name: 'an extra argument', argv: () => ['serve', root, 'extra'] },
+    { name: 'an extra argument', argv: () => ['serve', root, 'extra', '--port', '6007'] },
   ])('prints usage and fails for $name', async ({ argv }) => {
     await expect(runCli(argv())).resolves.toBe(1);
 
@@ -76,14 +76,23 @@ describe('runCli', () => {
     expect(serveStatic).not.toHaveBeenCalled();
   });
 
-  it.each(['abc', '-1', '70000', '60.5'])('fails for the port %s', async (port) => {
+  it('fails without a port', async () => {
+    await expect(runCli(['serve', root])).resolves.toBe(1);
+
+    expect(error).toHaveBeenCalledWith(
+      'storybook-screenshot-tests: Missing --port. Give the port in your storybookUrl.',
+    );
+    expect(serveStatic).not.toHaveBeenCalled();
+  });
+
+  it.each(['abc', '0', '-1', '70000', '60.5', ''])('fails for the port %s', async (port) => {
     await expect(runCli(['serve', root, `--port=${port}`])).resolves.toBe(1);
 
     expect(error).toHaveBeenCalledWith(`storybook-screenshot-tests: Not a port: ${port}`);
   });
 
   it('fails for an unknown option', async () => {
-    await expect(runCli(['serve', root, '--open'])).resolves.toBe(1);
+    await expect(runCli(['serve', root, '--port', '6007', '--open'])).resolves.toBe(1);
 
     expect(error).toHaveBeenCalledWith(expect.stringContaining("Unknown option '--open'"));
   });
@@ -91,7 +100,7 @@ describe('runCli', () => {
   it('reports a server that fails to start', async () => {
     serveStatic.mockRejectedValue(new Error('Port 6007 is already in use.'));
 
-    await expect(runCli(['serve', root])).resolves.toBe(1);
+    await expect(runCli(['serve', root, '--port', '6007'])).resolves.toBe(1);
 
     expect(error).toHaveBeenCalledWith('storybook-screenshot-tests: Port 6007 is already in use.');
   });

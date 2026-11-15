@@ -52,7 +52,8 @@ import { defineScreenshotConfig } from '@planttheidea/storybook-screenshot-tests
 import { devices } from '@playwright/test';
 
 export default defineScreenshotConfig({
-  storybookCommand: 'yarn storybook build --quiet && yarn storybook-screenshot-tests serve storybook-static',
+  storybookCommand:
+    'yarn storybook build --quiet && yarn storybook-screenshot-tests serve storybook-static --port 6007',
   storybookUrl: 'http://localhost:6007',
   fixedTime: '2024-06-01T12:00:00.000Z',
   projects: [
@@ -64,9 +65,9 @@ export default defineScreenshotConfig({
 ```
 
 The command builds Storybook, then serves the build with the [`serve` command](#serving-a-build) this package ships, on
-port 6007 rather than Storybook's 6006. Prefer that to `storybook dev`: a static build renders without HMR or on-demand
-compilation, and it runs beside a Storybook you have open yourself instead of competing with it.
-[The Storybook server](#the-storybook-server) has the details, including Nx.
+the port in `storybookUrl` — any port other than Storybook's default 6006. Prefer that to `storybook dev`: a static
+build renders without HMR or on-demand compilation, and it runs beside a Storybook you have open yourself instead of
+competing with it. [The Storybook server](#the-storybook-server) has the details, including Nx.
 
 `devices` is imported by your config and passed in, rather than looked up by name inside this package, because
 Playwright throws when it is loaded twice in one process. For the same reason the returned value is a plain config
@@ -378,7 +379,7 @@ with nothing changed skips straight to serving.
 defineScreenshotConfig({
   nx: true,
   storybookCommand:
-    'yarn nx build-storybook design-system && yarn storybook-screenshot-tests serve libs/design-system/storybook-static',
+    'yarn nx build-storybook design-system && yarn storybook-screenshot-tests serve libs/design-system/storybook-static --port 6007',
   storybookUrl: 'http://localhost:6007',
   storybookServer: { timeout: 180_000 },
   projects: [...],
@@ -393,17 +394,20 @@ build lands. Add `**/storybook-static/**` to its `server.watch.ignored` in `vite
 
 ### Serving a build
 
-`storybook-screenshot-tests serve <directory>` serves a directory over HTTP until it is stopped, with nothing to install
-beyond this package. It does only what a screenshot run needs:
+`storybook-screenshot-tests serve <directory> --port <port>` serves a directory over HTTP until it is stopped, with
+nothing to install beyond this package. It does only what a screenshot run needs:
 
 - Every response is `no-store`, so a browser never holds on to a previous build.
 - A port in use fails at once rather than moving to another one, since the run only ever looks at `storybookUrl`.
 - It stops on `SIGTERM`, closing open connections, so Playwright's shutdown is never the slow path.
 
-| Option       | Default       | What it does                        |
-| ------------ | ------------- | ----------------------------------- |
-| `-p, --port` | `6007`        | Port to listen on                   |
-| `-H, --host` | every address | Interface to bind, e.g. `127.0.0.1` |
+| Option       | Default       | What it does                                  |
+| ------------ | ------------- | --------------------------------------------- |
+| `-p, --port` | required      | Port to listen on — the one in `storybookUrl` |
+| `-H, --host` | every address | Interface to bind, e.g. `127.0.0.1`           |
+
+The port has no default on purpose. It has to match `storybookUrl`, and both are written in the same config, so a
+mismatch is visible in one place rather than hidden behind a default.
 
 Any static server works in its place; this one exists so the command in `storybookCommand` needs no other dependency.
 

@@ -3,12 +3,12 @@ import { serveStatic } from './serveStatic.js';
 
 const COMMAND = 'storybook-screenshot-tests';
 
-const USAGE = `Usage: ${COMMAND} serve <directory> [--port <port>] [--host <host>]
+const USAGE = `Usage: ${COMMAND} serve <directory> --port <port> [--host <host>]
 
 Serves a static Storybook build for a screenshot run.
 
 Options:
-  -p, --port   Port to listen on (default: 6007). Fails if it is in use.
+  -p, --port   Port to listen on, matching storybookUrl. Required; fails if it is in use.
   -H, --host   Interface to bind (default: every interface).
   -h, --help   Show this message.`;
 
@@ -39,9 +39,15 @@ export async function runCli(argv: string[]): Promise<number | undefined> {
     return 1;
   }
 
+  // Required rather than defaulted: the port has to match the config's
+  // `storybookUrl`, and a default would hide the place a mismatch comes from.
+  if (values.port === undefined) {
+    return fail(new Error('Missing --port. Give the port in your storybookUrl.'));
+  }
+
   const port = Number(values.port);
 
-  if (!Number.isInteger(port) || port < 0 || port > 65_535) {
+  if (!Number.isInteger(port) || port < 1 || port > 65_535) {
     return fail(new Error(`Not a port: ${values.port}`));
   }
 
@@ -75,7 +81,7 @@ function parse(argv: string[]) {
     options: {
       help: { short: 'h', type: 'boolean' },
       host: { short: 'H', type: 'string' },
-      port: { default: '6007', short: 'p', type: 'string' },
+      port: { short: 'p', type: 'string' },
     },
   });
 }
