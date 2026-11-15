@@ -1,5 +1,11 @@
 # storybook-screenshot-tests CHANGELOG
 
+## 2.3.1
+
+### Bugfix
+
+- Improve documentation for static usage with Storybook.
+
 ## 2.3.0
 
 ### Enhancements
