@@ -868,6 +868,7 @@ __metadata:
   dependencies:
     "@planttheidea/build-tools": "npm:^2.0.8"
     "@playwright/test": "npm:1.62.1"
+    "@rollup/plugin-typescript": "npm:^12.3.0"
     "@vitest/coverage-v8": "npm:^4.1.11"
     dependency-cruiser: "npm:^18.2.0"
     eslint: "npm:^9.39.5"
@@ -880,6 +881,8 @@ __metadata:
     vitest: "npm:^4.1.11"
   peerDependencies:
     "@playwright/test": ">=1.56.0"
+  bin:
+    storybook-screenshot-tests: ./dist/es/bin.mjs
   languageName: unknown
   linkType: soft
 

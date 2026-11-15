@@ -32,6 +32,7 @@ every run, the test tree is built from that, and baselines for stories that no l
     - [Per-story options](#per-story-options)
   - [The Storybook server](#the-storybook-server)
     - [Serve a static build, on its own port](#serve-a-static-build-on-its-own-port)
+    - [Serving a build](#serving-a-build)
     - [Shutting down](#shutting-down)
   - [How it works](#how-it-works)
   - [API](#api)
@@ -51,7 +52,7 @@ import { defineScreenshotConfig } from '@planttheidea/storybook-screenshot-tests
 import { devices } from '@playwright/test';
 
 export default defineScreenshotConfig({
-  storybookCommand: 'yarn storybook build --quiet && yarn http-server storybook-static --port 6007 --silent',
+  storybookCommand: 'yarn storybook build --quiet && yarn storybook-screenshot-tests serve storybook-static',
   storybookUrl: 'http://localhost:6007',
   fixedTime: '2024-06-01T12:00:00.000Z',
   projects: [
@@ -62,10 +63,10 @@ export default defineScreenshotConfig({
 });
 ```
 
-The command builds Storybook and serves the static output (`yarn add --dev http-server` for the server), on a port of
-its own. Prefer that to `storybook dev`: a static build renders without HMR or on-demand compilation, and it runs beside
-a Storybook you have open yourself instead of competing with it. [The Storybook server](#the-storybook-server) has the
-details, including Nx.
+The command builds Storybook, then serves the build with the [`serve` command](#serving-a-build) this package ships, on
+port 6007 rather than Storybook's 6006. Prefer that to `storybook dev`: a static build renders without HMR or on-demand
+compilation, and it runs beside a Storybook you have open yourself instead of competing with it.
+[The Storybook server](#the-storybook-server) has the details, including Nx.
 
 `devices` is imported by your config and passed in, rather than looked up by name inside this package, because
 Playwright throws when it is loaded twice in one process. For the same reason the returned value is a plain config
@@ -368,25 +369,43 @@ is reused rather than started, so sharing a port with the Storybook you run by h
 whatever state it is in. To do that on purpose, for a quick check without a build, set `STORYBOOK_URL` to it for one
 run.
 
-Through Nx, the Storybook plugin already infers a `static-storybook` target that builds and then serves the output. Use
-it rather than the `storybook` target: Nx will not start a task that is already running, so if `nx storybook` is open in
-another terminal, a screenshot run that starts the same task waits on it until it exits, then fails. A different target,
-on a different port, runs beside it.
+Through Nx, build with the Storybook plugin's `build-storybook` target rather than serving with its `storybook` one. Nx
+will not start a task that is already running, so if `nx storybook` is open in another terminal, a screenshot run that
+starts the same task waits on it until it exits, then fails. A build is a different task, and Nx caches it, so a run
+with nothing changed skips straight to serving.
 
 ```ts
 defineScreenshotConfig({
   nx: true,
-  storybookCommand: 'yarn nx static-storybook design-system --port=6007 --watch=false',
+  storybookCommand:
+    'yarn nx build-storybook design-system && yarn storybook-screenshot-tests serve libs/design-system/storybook-static',
   storybookUrl: 'http://localhost:6007',
   storybookServer: { timeout: 180_000 },
   projects: [...],
 });
 ```
 
-`--watch=false` stops the file server from rebuilding when files change, mid-run. (Watching needs the Nx daemon, which
-`nx: true` already turns off; the flag keeps that true without it.) The build writes `.html` files into the project, so
-a dev server open on the same project reloads its page when the build lands. Add `**/storybook-static/**` to its
-`server.watch.ignored` in `viteFinal` to stop that.
+The plugin's `static-storybook` target, which builds and then serves, works too. Pass it `--watch=false`, or its file
+server rebuilds when files change, mid-run, whenever the Nx daemon is running.
+
+The build writes `.html` files into the project, so a dev server open on the same project reloads its page when the
+build lands. Add `**/storybook-static/**` to its `server.watch.ignored` in `viteFinal` to stop that.
+
+### Serving a build
+
+`storybook-screenshot-tests serve <directory>` serves a directory over HTTP until it is stopped, with nothing to install
+beyond this package. It does only what a screenshot run needs:
+
+- Every response is `no-store`, so a browser never holds on to a previous build.
+- A port in use fails at once rather than moving to another one, since the run only ever looks at `storybookUrl`.
+- It stops on `SIGTERM`, closing open connections, so Playwright's shutdown is never the slow path.
+
+| Option       | Default       | What it does                        |
+| ------------ | ------------- | ----------------------------------- |
+| `-p, --port` | `6007`        | Port to listen on                   |
+| `-H, --host` | every address | Interface to bind, e.g. `127.0.0.1` |
+
+Any static server works in its place; this one exists so the command in `storybookCommand` needs no other dependency.
 
 ### Shutting down
 
