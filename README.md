@@ -31,6 +31,8 @@ every run, the test tree is built from that, and baselines for stories that no l
   - [Determinism](#determinism)
     - [Per-story options](#per-story-options)
   - [The Storybook server](#the-storybook-server)
+    - [Serve a static build, on its own port](#serve-a-static-build-on-its-own-port)
+    - [Shutting down](#shutting-down)
   - [How it works](#how-it-works)
   - [API](#api)
     - [`defineScreenshotConfig(options)`](#definescreenshotconfigoptions)
@@ -49,8 +51,8 @@ import { defineScreenshotConfig } from '@planttheidea/storybook-screenshot-tests
 import { devices } from '@playwright/test';
 
 export default defineScreenshotConfig({
-  storybookCommand: 'yarn storybook --ci',
-  storybookUrl: 'http://localhost:6006',
+  storybookCommand: 'yarn storybook build --quiet && yarn http-server storybook-static --port 6007 --silent',
+  storybookUrl: 'http://localhost:6007',
   fixedTime: '2024-06-01T12:00:00.000Z',
   projects: [
     { name: 'light-desktop', viewport: { width: 1280, height: 800 } },
@@ -59,6 +61,11 @@ export default defineScreenshotConfig({
   ],
 });
 ```
+
+The command builds Storybook and serves the static output (`yarn add --dev http-server` for the server), on a port of
+its own. Prefer that to `storybook dev`: a static build renders without HMR or on-demand compilation, and it runs beside
+a Storybook you have open yourself instead of competing with it. [The Storybook server](#the-storybook-server) has the
+details, including Nx.
 
 `devices` is imported by your config and passed in, rather than looked up by name inside this package, because
 Playwright throws when it is loaded twice in one process. For the same reason the returned value is a plain config
@@ -350,6 +357,39 @@ fails to load there keeps the config's defaults, and its test reports the real e
 Give `storybookCommand` and Playwright starts Storybook itself, from the repository root, reusing an already-running
 server locally but never on CI. Leave it off and the run expects something already listening at `storybookUrl`.
 
+### Serve a static build, on its own port
+
+Point `storybookCommand` at a static build rather than `storybook dev`. A dev server compiles each module the first time
+it is requested, re-optimizes dependencies when it finds new ones, and pushes HMR updates when files change, and any of
+those can land in the middle of a capture. A static build is finished before the first story loads.
+
+Give it a port nothing else uses — not Storybook's default `6006`. Locally, a server already listening at `storybookUrl`
+is reused rather than started, so sharing a port with the Storybook you run by hand means screenshotting that one, with
+whatever state it is in. To do that on purpose, for a quick check without a build, set `STORYBOOK_URL` to it for one
+run.
+
+Through Nx, the Storybook plugin already infers a `static-storybook` target that builds and then serves the output. Use
+it rather than the `storybook` target: Nx will not start a task that is already running, so if `nx storybook` is open in
+another terminal, a screenshot run that starts the same task waits on it until it exits, then fails. A different target,
+on a different port, runs beside it.
+
+```ts
+defineScreenshotConfig({
+  nx: true,
+  storybookCommand: 'yarn nx static-storybook design-system --port=6007 --watch=false',
+  storybookUrl: 'http://localhost:6007',
+  storybookServer: { timeout: 180_000 },
+  projects: [...],
+});
+```
+
+`--watch=false` stops the file server from rebuilding when files change, mid-run. (Watching needs the Nx daemon, which
+`nx: true` already turns off; the flag keeps that true without it.) The build writes `.html` files into the project, so
+a dev server open on the same project reloads its page when the build lands. Add `**/storybook-static/**` to its
+`server.watch.ignored` in `viteFinal` to stop that.
+
+### Shutting down
+
 The server is asked to stop with `SIGTERM` and given five seconds before the process group is killed. That matters more
 than it sounds: a Vite server that outlives the run keeps the port, and the next run quietly reuses the stale server —
 which reads as a mysteriously wrong set of screenshots rather than as a server problem.
@@ -357,15 +397,6 @@ which reads as a mysteriously wrong set of screenshots rather than as a server p
 For the same reason there is an `nx` flag. Nx's TUI runs a task in a pseudo-terminal and its daemon is detached, so
 either one can leave Storybook outside the group Playwright kills. Setting `nx: true` sets `NX_DAEMON` and `NX_TUI` to
 `false` for the server process, keeping the whole tree killable.
-
-```ts
-defineScreenshotConfig({
-  nx: true,
-  storybookCommand: 'yarn nx run design-system:storybook',
-  storybookServer: { timeout: 180_000, stdout: 'pipe' },
-  projects: [...],
-});
-```
 
 ## How it works
 
@@ -444,6 +475,10 @@ tag. Tag the stories, then let Storybook refresh its index.
 
 **Screenshots differ and nothing changed.** Usually a stale Storybook server answering from a previous run's port. Check
 for a listener on `storybookUrl` before the run, and if the server is launched through Nx, set `nx: true`.
+
+**The run hangs while Storybook is open elsewhere, then fails when it closes.** The command starts the same Nx task that
+is already running, and Nx waits for it. Run the screenshot server as a different target on a different port — see
+[Serve a static build](#serve-a-static-build-on-its-own-port).
 
 **A story's baselines never go stale.** Look for a build-output warning in global setup. A workspace package resolved
 through `dist` is invisible to affected-story detection, so the stories depending on it never re-run under a base ref.
