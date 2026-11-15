@@ -77,14 +77,29 @@ describe('resolveOptions', () => {
   });
 
   it('accepts the deprecated fixedTime as now', () => {
-    expect(resolveOptions({ projects, fixedTime: '2026-07-15T12:00:00.000Z' }, '/app').now).toBe(
-      '2026-07-15T12:00:00.000Z',
-    );
+    expect(
+      resolveOptions(
+        {
+          projects,
+          // eslint-disable-next-line @typescript-eslint/no-deprecated
+          fixedTime: '2026-07-15T12:00:00.000Z',
+        },
+        '/app',
+      ).now,
+    ).toBe('2026-07-15T12:00:00.000Z');
   });
 
   it('prefers now over the deprecated fixedTime', () => {
     expect(
-      resolveOptions({ projects, now: '2026-10-04T00:00:00.000Z', fixedTime: '2026-07-15T12:00:00.000Z' }, '/app').now,
+      resolveOptions(
+        {
+          projects,
+          now: '2026-10-04T00:00:00.000Z',
+          // eslint-disable-next-line @typescript-eslint/no-deprecated
+          fixedTime: '2026-07-15T12:00:00.000Z',
+        },
+        '/app',
+      ).now,
     ).toBe('2026-10-04T00:00:00.000Z');
   });
 
