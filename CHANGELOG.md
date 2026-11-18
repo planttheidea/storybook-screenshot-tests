@@ -1,5 +1,13 @@
 # storybook-screenshot-tests CHANGELOG
 
+## 2.4.0
+
+### Enhancements
+
+- On CI, workers are capped at half the machine's cores (`'50%'`, at least one) instead of a single worker. A 2-core
+  runner still runs one; a 4-core runner, like GitHub's default for public repositories, runs two. The other half is
+  left for the Storybook server every worker loads from. Override it with `playwright: { workers }`.
+
 ## 2.3.1
 
 ### Bugfix
