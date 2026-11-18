@@ -312,8 +312,9 @@ everything that could drift is pinned. Handled for you:
 
 Retries are off, since a retried screenshot comparison tells you nothing a first one didn't. With `debug` on, a trace is
 kept for every failure instead, in the generated `output` directory — off otherwise, since recording one slows every
-test, passing or not. On CI, workers are capped at one and Playwright's `github` reporter is added alongside this
-package's own.
+test, passing or not. On CI, workers are capped at half the machine's cores (`'50%'`; at least one), leaving headroom
+for the Storybook server every worker loads from, and Playwright's `github` reporter is added alongside this package's
+own.
 
 Anything else is yours to override through `playwright`, which is merged over the generated config last:
 

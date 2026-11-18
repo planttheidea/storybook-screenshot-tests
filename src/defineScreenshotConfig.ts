@@ -112,7 +112,7 @@ export function defineScreenshotConfig(options: ScreenshotConfigOptions): Playwr
       [resolve(generatedDirectory, 'reporter.ts'), { debug: resolved.debug }],
     ],
     retries: 0,
-    workers: isContinuousIntegration ? 1 : undefined,
+    workers: isContinuousIntegration ? '50%' : undefined,
     outputDir: resolve(generatedDirectory, 'output'),
     use: {
       // biome-ignore lint/style/useNamingConvention: `baseURL` is Playwright's property name.

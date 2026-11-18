@@ -213,12 +213,12 @@ describe('defineScreenshotConfig environment', () => {
     }
   });
 
-  it('runs one worker and adds the github reporter on CI', () => {
+  it('runs half the cores as workers and adds the github reporter on CI', () => {
     process.env.CI = 'true';
 
     const config = createConfig();
 
-    expect(config.workers).toBe(1);
+    expect(config.workers).toBe('50%');
     expect(Array.isArray(config.reporter) && config.reporter[0]).toEqual(['github']);
   });
 
